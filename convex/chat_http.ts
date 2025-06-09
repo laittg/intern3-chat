@@ -148,12 +148,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
   const parts: Array<
     | TextUIPart
     | (ReasoningUIPart & { duration?: number })
-    | (ToolInvocationUIPart & {
-        toolInvocation?: ToolInvocation & {
-          mcpName?: string;
-          mcpType?: "stdio" | "sse";
-        };
-      })
+    | ToolInvocationUIPart
     | (Omit<FileUIPart, "data"> & { assetUrl: string })
     | Infer<typeof ErrorUIPart>
   > = [];
@@ -429,6 +424,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
   const streamContext = getStreamContext();
   if (streamContext) {
+    console.log(" > Resumable stream context found");
     return new Response(
       (
         await streamContext.resumableStream(streamId, () => stream)
