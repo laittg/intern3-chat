@@ -11,6 +11,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Id } from "@/convex/_generated/dataModel";
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages";
+import equal from "fast-deep-equal/es6";
 
 export function Chat({
   threadId: routeThreadId,
@@ -45,47 +46,56 @@ export function Chat({
       : "skip"
   );
 
-  const initialMessages = useMemo(() => {
-    if (!threadMessages || "error" in threadMessages) return [];
-    return backendToUiMessages(threadMessages);
-  }, [threadMessages, threadId]);
+  const [loadingMessages, initialMessages] = useMemo(() => {
+    if (!threadMessages) return ["loading" as const, []];
+    if ("error" in threadMessages) return ["error" as const, []];
+    return ["ready" as const, backendToUiMessages(threadMessages)];
+  }, [threadMessages]);
 
-  const { messages, append, experimental_resume, data, setMessages, setData } =
-    useChat({
-      id: threadId === undefined ? `new_chat_${rerenderTrigger}` : threadId,
-      headers: {
-        authorization: `Bearer ${tokenData.token}`,
-      },
-      experimental_prepareRequestBody(body) {
-        const proposedNewAssistantId = generateIdSeeded();
-        seedNextId.current = proposedNewAssistantId;
+  const {
+    messages,
+    append,
+    experimental_resume,
+    data,
+    setMessages,
+    setData,
+    status,
+  } = useChat({
+    id: threadId === undefined ? `new_chat_${rerenderTrigger}` : threadId,
+    headers: {
+      authorization: `Bearer ${tokenData.token}`,
+    },
+    experimental_prepareRequestBody(body) {
+      const proposedNewAssistantId = generateIdSeeded();
+      seedNextId.current = proposedNewAssistantId;
 
-        const messages = body.messages as Message[];
-        const message = messages[messages.length - 1];
-        return {
-          id: threadId,
-          proposedNewAssistantId,
-          message: {
-            parts: message?.parts,
-            role: message?.role,
-            messageId: message?.id,
-          },
-        };
-      },
-      initialMessages,
-      onFinish: () => {
-        if (shouldUpdateQueryRef.current) {
-          shouldUpdateQueryRef.current = false;
-          setRerenderTrigger(nanoid());
-        }
-      },
-      api: `${browserEnv("VITE_CONVEX_API_URL")}/chat`,
-      generateId: generateIdSeeded,
-    });
+      const messages = body.messages as Message[];
+      const message = messages[messages.length - 1];
+      return {
+        id: threadId,
+        proposedNewAssistantId,
+        message: {
+          parts: message?.parts,
+          role: message?.role,
+          messageId: message?.id,
+        },
+      };
+    },
+    initialMessages,
+    onFinish: () => {
+      if (shouldUpdateQueryRef.current) {
+        shouldUpdateQueryRef.current = false;
+        setRerenderTrigger(nanoid());
+      }
+    },
+    api: `${browserEnv("VITE_CONVEX_API_URL")}/chat`,
+    generateId: generateIdSeeded,
+  });
 
   useAutoResume({
     autoResume: true,
-    initialMessages: [],
+    loadingMessages,
+    initialMessages,
     experimental_resume,
     data,
     setMessages,
@@ -110,6 +120,36 @@ export function Chat({
       setRerenderTrigger(nanoid());
     }
   }, [routeThreadId]);
+
+  // Modified useEffect to update messages correctly ONLY WHEN IDLE
+  useEffect(() => {
+    // Only sync from thread data if useChat is not actively processing
+    if (status === "ready" && threadId) {
+      if (threadMessages === undefined) {
+        return;
+      }
+      const backendArray = Array.isArray(threadMessages) ? threadMessages : [];
+      const allThreadMessages = backendToUiMessages(backendArray);
+      setMessages((old) => {
+        if (allThreadMessages.length > 1 && old.length > 1) {
+          const oldLast = old[old.length - 1];
+          const newLast = allThreadMessages[allThreadMessages.length - 1];
+          if (oldLast.id === newLast.id && oldLast.parts && newLast.parts) {
+            if (oldLast.parts.length > 0 && newLast.parts.length === 0) {
+              return old;
+            }
+          }
+        }
+        // const diff = diffMessages(old, allThreadMessages, "early-return");
+        const diff = equal(old, allThreadMessages);
+        console.log("diff", diff, old, allThreadMessages);
+        if (diff) return old;
+        return allThreadMessages;
+      });
+    }
+    // Note: We removed currentLeafId/leafIdForRendering from dependencies earlier
+    // as filtering now happens in MessagesView based on the potentially optimistic leafId.
+  }, [status, setMessages, threadId, threadMessages]);
 
   useEffect(() => {
     if (skipNextDataCheck.current) {

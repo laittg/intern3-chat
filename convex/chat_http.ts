@@ -40,7 +40,8 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
-const globalAbortSignals: Record<string, AbortController> = {};
+// const globalAbortSignals: Record<string, AbortController> = {};
+const globalUnsubscribers: Record<string, () => void> = {};
 let globalStreamContext: ResumableStreamContext | null = null;
 const getStreamContext = () => {
   if (!globalStreamContext) {
@@ -53,42 +54,89 @@ const getStreamContext = () => {
             channel: string,
             callback: (message: string) => void
           ) => {
+            console.debug(`[Redis] Subscribing to channel: ${channel}`);
             const subscriber = redis.subscribe(channel);
             subscriber.on("message", (message) => {
-              callback((message.message as any).toString());
+              console.debug(
+                `[Redis] Message received: raw_type=${typeof message.message} raw=${message.message}`
+              );
+              const reEncoded =
+                typeof message.message === "string"
+                  ? message.message
+                  : JSON.stringify(message.message);
+              console.debug(
+                `[Redis] Message received: re-encoded=${reEncoded}`
+              );
+              callback(reEncoded);
             });
-            const controller = new AbortController();
-            controller.signal.addEventListener("abort", () => {
+
+            subscriber.on("pmessage", (message) => {
+              console.debug(
+                `[Redis] Pattern message received: raw_type=${typeof message.message} raw=${message.message}`
+              );
+              const reEncoded =
+                typeof message.message === "string"
+                  ? message.message
+                  : JSON.stringify(message.message);
+              console.debug(
+                `[Redis] Pattern message received: re-encoded=${reEncoded}`
+              );
+              callback(reEncoded);
+            });
+
+            subscriber.on("error", (error) => {
+              console.error(`[Redis] Subscriber Error: ${error}`);
+            });
+
+            subscriber.on("subscribe", (channel) => {
+              console.debug(`[Redis] SUBSCRIBE<- to channel: ${channel}`);
+            });
+
+            // const controller = new AbortController();
+            // controller.signal.addEventListener("abort", () => {
+            //   globalUnsubscribers[channel]?.();
+            // });
+            globalUnsubscribers[channel] = () => {
               subscriber.unsubscribe();
-            });
-            globalAbortSignals[channel] = controller;
+            };
             return;
           }) satisfies Subscriber["subscribe"],
           unsubscribe: (async (channel: string) => {
-            globalAbortSignals[channel]?.abort();
-            delete globalAbortSignals[channel];
+            console.debug(`[Redis] Unsubscribing from channel: ${channel}`);
+            globalUnsubscribers[channel]?.();
+            delete globalUnsubscribers[channel];
             return undefined as unknown;
           }) satisfies Subscriber["unsubscribe"],
         },
         publisher: {
           connect: async () => {},
           publish: async (channel: string, message: string) => {
-            return await redis.publish(channel, message);
+            console.debug(
+              `[Redis] Publishing to channel: ${channel} ${message}`
+            );
+            return await redis.publish(
+              channel,
+              // typeof message === "string" ? message : JSON.stringify(message)
+              JSON.stringify(message)
+            );
           },
           set: async (
             key: string,
             value: string,
             options?: { EX?: number }
           ) => {
+            console.debug(`[Redis] SET ${key} ${value} ${options?.EX}`);
             if (options?.EX) {
               return await redis.set(key, value, { ex: options.EX });
             }
             return await redis.set(key, value);
           },
           get: async (key: string) => {
+            console.debug(`[Redis] GET ${key}`);
             return (await redis.get(key)) as string | number | null;
           },
           incr: async (key: string) => {
+            console.debug(`[Redis] INCR ${key}`);
             return await redis.incr(key);
           },
         },
@@ -192,6 +240,42 @@ export const chatPOST = httpAction(async (ctx, req) => {
           }
         }
       };
+
+      const consumed = new DelayedPromise();
+      // Mock stream that outputs numbers for 30 seconds
+      // const result = {
+      //   consumeStream: () => consumed.value,
+      //   fullStream: new ReadableStream({
+      //     start(controller) {
+      //       let count = 0;
+      //       const startTime = Date.now();
+      //       const interval = setInterval(() => {
+      //         const elapsed = Date.now() - startTime;
+      //         if (elapsed >= 30000) {
+      //           // 30 seconds
+      //           controller.enqueue({ type: "finish" });
+      //           controller.close();
+      //           clearInterval(interval);
+      //           consumed.resolve(true);
+      //           return;
+      //         }
+
+      //         controller.enqueue({
+      //           type: "text-delta",
+      //           textDelta: `${count} `,
+      //         });
+      //         count++;
+      //       }, 1000); // Stream a number every 100ms
+
+      //       // // Clean up on abort
+      //       // remoteCancel.signal.addEventListener("abort", () => {
+      //       //   clearInterval(interval);
+      //       //   controller.close();
+      //       //   consumed.resolve(true);
+      //       // });
+      //     },
+      //   }),
+      // };
 
       const result = streamText({
         model: google("gemini-2.0-flash-lite"),
@@ -461,7 +545,7 @@ export const chatGET = httpAction(async (ctx, req) => {
   }
 
   const { searchParams } = new URL(req.url);
-  const threadId = searchParams.get("threadId");
+  const threadId = searchParams.get("chatId");
   if (!threadId) return new ChatError("bad_request:api").toResponse();
 
   const session = await getUserIdentity(ctx.auth, { allowAnons: false });
@@ -493,15 +577,19 @@ export const chatGET = httpAction(async (ctx, req) => {
   const recentStreamId = streams.at(-1);
 
   if (!recentStreamId) return new ChatError("not_found:stream").toResponse();
+  console.log("recentStreamId", recentStreamId);
 
   const emptyDataStream = createDataStream({
     execute: () => {},
+    onError: (error) => {
+      console.error("Error in emptyDataStream", error);
+      return "Error in emptyDataStream";
+    },
   });
 
-  const stream = await streamContext.resumableStream(
-    recentStreamId._id,
-    () => emptyDataStream
-  );
+  const stream = await streamContext.resumeExistingStream(recentStreamId._id);
+
+  console.log("stream resolved", !!stream);
 
   /*
    * For when the generation is streaming during SSR
@@ -514,6 +602,7 @@ export const chatGET = httpAction(async (ctx, req) => {
         threadId: threadId as Id<"threads">,
       }
     );
+    console.log("messages", messages);
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage) {
@@ -539,10 +628,24 @@ export const chatGET = httpAction(async (ctx, req) => {
       },
     });
 
-    return new Response(restoredStream, { status: 200 });
+    return new Response(restoredStream.pipeThrough(new TextEncoderStream()), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
+        "Keep-Alive": "timeout=5, max=100",
+      },
+    });
   }
 
-  return new Response(stream, { status: 200 });
+  return new Response(stream.pipeThrough(new TextEncoderStream()), {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Vercel-AI-Data-Stream": "v1",
+      "Keep-Alive": "timeout=5, max=100",
+    },
+  });
 });
 
 export const demo = query(async (ctx) => {

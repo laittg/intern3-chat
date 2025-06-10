@@ -9,6 +9,7 @@ export type DataPart = { type: "append-message"; message: string };
 export interface Props {
   autoResume: boolean;
   initialMessages: UIMessage[];
+  loadingMessages: "loading" | "error" | "ready";
   experimental_resume: UseChatHelpers["experimental_resume"];
   data: UseChatHelpers["data"];
   setMessages: UseChatHelpers["setMessages"];
@@ -17,6 +18,7 @@ export interface Props {
 export function useAutoResume({
   autoResume,
   initialMessages,
+  loadingMessages,
   experimental_resume,
   data,
   setMessages,
@@ -24,16 +26,22 @@ export function useAutoResume({
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run this once
   useEffect(() => {
     if (!autoResume) return;
+    if (loadingMessages !== "ready") return;
 
+    console.log("useAutoResume", initialMessages, loadingMessages);
     const mostRecentMessage = initialMessages.at(-1);
 
-    if (mostRecentMessage?.role === "user") {
+    if (
+      mostRecentMessage?.role === "user" ||
+      (mostRecentMessage?.role === "assistant" &&
+        mostRecentMessage.parts?.length === 0)
+    ) {
       experimental_resume();
     }
 
     // we intentionally run this once
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadingMessages, initialMessages]);
 
   useEffect(() => {
     if (!data || data.length === 0) return;
