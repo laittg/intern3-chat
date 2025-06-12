@@ -1,17 +1,17 @@
-import { useQuery as useConvexQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { type Message, useChat } from "@ai-sdk/react";
 import { Messages } from "@/components/messages";
 import { MultimodalInput } from "@/components/multimodal-input";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { browserEnv } from "@/convex/lib/env";
-import { useToken } from "@/hooks/auth-hooks";
-import { nanoid } from "nanoid";
-import { useAutoResume } from "@/hooks/use-auto-resume";
-import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages";
+import { browserEnv } from "@/convex/lib/env";
+import { useToken } from "@/hooks/auth-hooks";
+import { useAutoResume } from "@/hooks/use-auto-resume";
+import { type Message, useChat } from "@ai-sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useQuery as useConvexQuery } from "convex/react";
 import equal from "fast-deep-equal/es6";
+import { nanoid } from "nanoid";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function Chat({
   threadId: routeThreadId,
@@ -44,6 +44,11 @@ export function Chat({
           threadId: threadId as Id<"threads">,
         }
       : "skip"
+  );
+
+  const thread = useConvexQuery(
+    api.threads.getThread,
+    threadId ? { threadId: threadId as Id<"threads"> } : "skip"
   );
 
   const [loadingMessages, initialMessages] = useMemo(() => {
@@ -99,6 +104,10 @@ export function Chat({
     experimental_resume,
     data,
     setMessages,
+    thread: thread || undefined,
+    threadId,
+    status,
+    messages,
   });
 
   const resetAll = () => {
@@ -173,7 +182,7 @@ export function Chat({
     lastProcessedDataIndex.current = (data?.length ?? 0) - 1;
   }, [data]);
 
-  console.log("messages", messages, threadMessages, threadId);
+  console.log("messages", status, messages, threadMessages, threadId);
   return (
     <div className="flex h-full grow flex-col">
       <Messages messages={messages} />

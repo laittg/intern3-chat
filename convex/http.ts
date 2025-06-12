@@ -8,6 +8,8 @@ const cors = corsRouter(http, {
     "http://localhost:3000",
     "https://intern3.vercel.app",
     "https://intern3.chat",
+    "https://intern3-chat-demo.vercel.app",
+    "https://intern3-chat.vercel.app",
   ],
   allowedHeaders: ["Content-Type", "Authorization"],
   allowCredentials: true,

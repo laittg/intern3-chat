@@ -6,6 +6,7 @@ import * as schema from "@/database/schema";
 import { jwt } from "better-auth/plugins/jwt";
 
 export const auth = betterAuth({
+  url: process.env.VITE_BETTER_AUTH_URL,
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,

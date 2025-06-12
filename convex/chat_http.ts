@@ -3,37 +3,35 @@ import type {
   FileUIPart,
   ReasoningUIPart,
   TextUIPart,
-  ToolInvocation,
   ToolInvocationUIPart,
 } from "@ai-sdk/ui-utils";
 
-import { httpAction, query } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { getUserIdentity } from "./lib/identity";
-import {
-  createResumableStreamContext,
-  type Subscriber,
-  type ResumableStreamContext,
-} from "resumable-stream";
+import { DelayedPromise } from "@/lib/delayed-promise";
 import { ChatError } from "@/lib/errors";
-import type { Thread } from "./schema";
-import type { Infer } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import { google } from "@ai-sdk/google";
 import { Redis } from "@upstash/redis";
 import {
-  createDataStream,
-  createDataStreamResponse,
-  formatDataStreamPart,
-  streamText,
   type TextStreamPart,
   type ToolCall,
+  createDataStream,
+  formatDataStreamPart,
+  streamText,
 } from "ai";
+import type { Infer } from "convex/values";
 import { differenceInSeconds } from "date-fns";
-import { google } from "@ai-sdk/google";
+import {
+  type ResumableStreamContext,
+  type Subscriber,
+  createResumableStreamContext,
+} from "resumable-stream";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { httpAction, query } from "./_generated/server";
 import { dbMessagesToCore } from "./lib/db_to_core_messages";
-import type { ErrorUIPart } from "./schema/parts";
+import { getUserIdentity } from "./lib/identity";
+import type { Thread } from "./schema";
 import type { HTTPAIMessage } from "./schema/message";
-import { DelayedPromise } from "@/lib/delayed-promise";
+import type { ErrorUIPart } from "./schema/parts";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -57,30 +55,30 @@ const getStreamContext = () => {
             console.debug(`[Redis] Subscribing to channel: ${channel}`);
             const subscriber = redis.subscribe(channel);
             subscriber.on("message", (message) => {
-              console.debug(
-                `[Redis] Message received: raw_type=${typeof message.message} raw=${message.message}`
-              );
+              // console.debug(
+              //   `[Redis] Message received: raw_type=${typeof message.message} raw=${message.message}`
+              // );
               const reEncoded =
                 typeof message.message === "string"
                   ? message.message
                   : JSON.stringify(message.message);
-              console.debug(
-                `[Redis] Message received: re-encoded=${reEncoded}`
-              );
+              // console.debug(
+              //   `[Redis] Message received: re-encoded=${reEncoded}`
+              // );
               callback(reEncoded);
             });
 
             subscriber.on("pmessage", (message) => {
-              console.debug(
-                `[Redis] Pattern message received: raw_type=${typeof message.message} raw=${message.message}`
-              );
+              // console.debug(
+              //   `[Redis] Pattern message received: raw_type=${typeof message.message} raw=${message.message}`
+              // );
               const reEncoded =
                 typeof message.message === "string"
                   ? message.message
                   : JSON.stringify(message.message);
-              console.debug(
-                `[Redis] Pattern message received: re-encoded=${reEncoded}`
-              );
+              // console.debug(
+              //   `[Redis] Pattern message received: re-encoded=${reEncoded}`
+              // );
               callback(reEncoded);
             });
 
@@ -95,7 +93,7 @@ const getStreamContext = () => {
             // const controller = new AbortController();
             // controller.signal.addEventListener("abort", () => {
             //   globalUnsubscribers[channel]?.();
-            // });
+            // });=
             globalUnsubscribers[channel] = () => {
               subscriber.unsubscribe();
             };
@@ -111,9 +109,9 @@ const getStreamContext = () => {
         publisher: {
           connect: async () => {},
           publish: async (channel: string, message: string) => {
-            console.debug(
-              `[Redis] Publishing to channel: ${channel} ${message}`
-            );
+            // console.debug(
+            //   `[Redis] Publishing to channel: ${channel} ${message}`
+            // );
             return await redis.publish(
               channel,
               // typeof message === "string" ? message : JSON.stringify(message)
@@ -203,6 +201,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
   const stream = createDataStream({
     execute: async (dataStream) => {
+      // Mark thread as live only after stream starts executing
+      await ctx.runMutation(internal.threads.updateThreadStreamingState, {
+        threadId: mutationResult.threadId,
+        isLive: true,
+        streamStartedAt: streamStartTime,
+      });
+
       dataStream.writeData({
         type: "thread_id",
         content: mutationResult.threadId,
@@ -243,51 +248,58 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
       const consumed = new DelayedPromise();
       // Mock stream that outputs numbers for 30 seconds
-      // const result = {
-      //   consumeStream: () => consumed.value,
-      //   fullStream: new ReadableStream({
-      //     start(controller) {
-      //       let count = 0;
-      //       const startTime = Date.now();
-      //       const interval = setInterval(() => {
-      //         const elapsed = Date.now() - startTime;
-      //         if (elapsed >= 30000) {
-      //           // 30 seconds
-      //           controller.enqueue({ type: "finish" });
-      //           controller.close();
-      //           clearInterval(interval);
-      //           consumed.resolve(true);
-      //           return;
-      //         }
+      const result = {
+        consumeStream: () => consumed.value,
+        fullStream: new ReadableStream({
+          start(controller) {
+            let count = 0;
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+              const elapsed = Date.now() - startTime;
+              if (elapsed >= 15000) {
+                // 30 seconds
+                controller.enqueue({ type: "finish" });
+                controller.close();
+                clearInterval(interval);
+                consumed.resolve(true);
+                return;
+              }
 
-      //         controller.enqueue({
-      //           type: "text-delta",
-      //           textDelta: `${count} `,
-      //         });
-      //         count++;
-      //       }, 1000); // Stream a number every 100ms
+              const lorems = [
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+                "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+                "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+                "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+              ];
 
-      //       // // Clean up on abort
-      //       // remoteCancel.signal.addEventListener("abort", () => {
-      //       //   clearInterval(interval);
-      //       //   controller.close();
-      //       //   consumed.resolve(true);
-      //       // });
-      //     },
-      //   }),
-      // };
+              controller.enqueue({
+                type: "text-delta",
+                textDelta: `${count} ${lorems[count % lorems.length]}`,
+              });
+              count++;
+            }, 1000); // Stream a number every 100ms
 
-      const result = streamText({
-        model: google("gemini-2.0-flash-lite"),
-        abortSignal: remoteCancel.signal,
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant.",
+            // // Clean up on abort
+            // remoteCancel.signal.addEventListener("abort", () => {
+            //   clearInterval(interval);
+            //   controller.close();
+            //   consumed.resolve(true);
+            // });
           },
-          ...mapped_messages.reverse(),
-        ],
-      });
+        }),
+      };
+
+      // const result = streamText({
+      //   model: google("gemini-2.0-flash-lite"),
+      //   abortSignal: remoteCancel.signal,
+      //   messages: [
+      //     {
+      //       role: "system",
+      //       content: "You are a helpful assistant.",
+      //     },
+      //     ...mapped_messages.reverse(),
+      //   ],
+      // });
 
       dataStream.merge(
         result.fullStream.pipeThrough(
@@ -503,6 +515,23 @@ export const chatPOST = httpAction(async (ctx, req) => {
           serverDurationMs: Date.now() - streamStartTime,
         },
       });
+
+      // Mark thread as not live after streaming completes
+      await ctx.runMutation(internal.threads.updateThreadStreamingState, {
+        threadId: mutationResult.threadId,
+        isLive: false,
+      });
+    },
+    onError: (error) => {
+      console.error("[cvx][chat][stream] Fatal error:", error);
+      // Mark thread as not live on error
+      ctx
+        .runMutation(internal.threads.updateThreadStreamingState, {
+          threadId: mutationResult.threadId,
+          isLive: false,
+        })
+        .catch((err) => console.error("Failed to update thread state:", err));
+      return "Stream error occurred";
     },
   });
 

@@ -1,16 +1,33 @@
-import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import { ChatError } from "@/lib/errors";
-import { HTTPAIMessage } from "./schema/message";
+import { v } from "convex/values";
 import { nanoid } from "nanoid";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { getUserIdentity } from "./lib/identity";
+import { HTTPAIMessage } from "./schema/message";
 
 export const getThreadById = internalQuery({
   args: { threadId: v.id("threads") },
   handler: async ({ db }, { threadId }) => {
     const thread = await db.get(threadId);
     if (!thread) return null;
+    return thread;
+  },
+});
+
+// Public version of getThreadById
+export const getThread = query({
+  args: { threadId: v.id("threads") },
+  handler: async ({ db, auth }, { threadId }) => {
+    const user = await getUserIdentity(auth, {
+      allowAnons: true,
+    });
+
+    if ("error" in user) return null;
+
+    const thread = await db.get(threadId);
+    if (!thread || thread.authorId !== user.id) return null;
+
     return thread;
   },
 });
@@ -156,5 +173,29 @@ export const getAllUserThreads = query({
       .collect();
 
     return threads;
+  },
+});
+
+export const updateThreadStreamingState = internalMutation({
+  args: {
+    threadId: v.id("threads"),
+    isLive: v.boolean(),
+    streamStartedAt: v.optional(v.number()),
+  },
+  handler: async ({ db }, { threadId, isLive, streamStartedAt }) => {
+    const thread = await db.get(threadId);
+    if (!thread) {
+      console.error(
+        "[cvx][updateThreadStreamingState] Thread not found",
+        threadId
+      );
+      return;
+    }
+
+    await db.patch(threadId, {
+      isLive,
+      streamStartedAt: isLive ? streamStartedAt : undefined,
+      updatedAt: Date.now(),
+    });
   },
 });
