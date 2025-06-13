@@ -12,7 +12,7 @@ import { useChatStore } from "@/lib/chat-store";
 import { useModelStore } from "@/lib/model-store";
 import type { useChat } from "@ai-sdk/react";
 import { ArrowUp, Loader2, Paperclip, Search, Square, X } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import type { z } from "zod";
 
 
@@ -26,10 +26,25 @@ export function MultimodalInput({
   status: ReturnType<typeof useChat>["status"];
 }) {
   const { selectedModel, setSelectedModel } = useModelStore();
-  const { files, setFiles, enabledTools } = useChatStore();
+  const { input, files, setFiles, enabledTools, setInput } = useChatStore();
   const isLoading = status === "streaming";
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
+
+  // Initialize textarea with persisted input value
+  useEffect(() => {
+    if (promptInputRef.current && input) {
+      promptInputRef.current.setValue(input);
+    }
+  }, []); // Only run on mount
+
+  // Sync textarea changes back to store for persistence
+  const handleInputChange = () => {
+    const currentValue = promptInputRef.current?.getValue() || "";
+    if (currentValue !== input) {
+      setInput(currentValue);
+    }
+  };
 
   const handleSubmit = async () => {
     const inputValue = promptInputRef.current?.getValue() || "";
@@ -87,7 +102,10 @@ export function MultimodalInput({
         </div>
       )}
 
-      <PromptInputTextarea placeholder="Ask me anything..." />
+      <PromptInputTextarea 
+        placeholder="Ask me anything..." 
+        onChange={handleInputChange}
+      />
 
       <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
         <div className="flex items-center gap-0.5">
