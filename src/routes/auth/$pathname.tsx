@@ -1,8 +1,16 @@
 import { cn } from "@/lib/utils"
 import { AuthCard } from "@daveyplate/better-auth-ui"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/auth/$pathname")({
+    beforeLoad: ({ params }) => {
+        // Redirect settings to the new dedicated settings page
+        if (params.pathname === "settings") {
+            throw redirect({
+                to: "/auth/settings"
+            })
+        }
+    },
     component: RouteComponent
 })
 
