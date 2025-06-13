@@ -1,5 +1,6 @@
 import { GitHubIcon, UserButton } from "@daveyplate/better-auth-ui"
 import { Link } from "@tanstack/react-router"
+import { Settings } from "lucide-react"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { Button } from "./ui/button"
 import { SidebarTrigger } from "./ui/sidebar"
@@ -40,6 +41,12 @@ export function Header() {
                             <GitHubIcon />
                         </Button>
                     </a>
+
+                    <Button asChild variant="outline" size="icon" className="size-8 rounded-full">
+                        <Link to="/auth/settings">
+                            <Settings className="h-4 w-4" />
+                        </Link>
+                    </Button>
 
                     <ThemeSwitcher />
                     <UserButton />
