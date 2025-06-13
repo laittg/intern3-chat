@@ -1,5 +1,5 @@
 {
-    "name": "tanstack-start",
+    "name": "intern3chat",
     "version": "1.0.0",
     "type": "module",
     "scripts": {
@@ -14,12 +14,13 @@
         "auth:push": "npx drizzle-kit push"
     },
     "keywords": [
-        "better-auth",
-        "tanstack",
+        "intern3chat",
         "vite",
-        "react"
+        "react",
+        "tanstack",
+        "better-auth"
     ],
-    "author": "daveycodez",
+    "author": "intern3chat",
     "license": "MIT",
     "dependencies": {
         "@ai-sdk/anthropic": "^1.2.12",
