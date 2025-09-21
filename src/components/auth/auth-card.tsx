@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import { Separator } from "@/components/ui/separator"
+import { siteConfig } from "@/config/site"
 import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -194,7 +195,7 @@ export function AuthCard() {
         if (step === "onboarding") {
             return "Complete your profile"
         }
-        return "Sign in to intern3.chat"
+        return `Sign in to ${siteConfig.name}`
     }, [step])
 
     return (

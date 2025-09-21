@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useQuery as useConvexQuery } from "convex/react"
@@ -15,9 +16,9 @@ export function useDynamicTitle({ threadId }: UseDynamicTitleProps) {
 
     useEffect(() => {
         if (threadId && thread && !("error" in thread)) {
-            document.title = `${thread.title} - intern3.chat`
+            document.title = `${thread.title} - ${siteConfig.name}`
         } else {
-            document.title = "intern3.chat"
+            document.title = siteConfig.name
         }
     }, [threadId, thread])
 }

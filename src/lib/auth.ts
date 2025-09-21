@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { emailOTP } from "better-auth/plugins"
@@ -9,9 +10,9 @@ import { sendOTPEmail } from "./email"
 
 export const auth = betterAuth({
     trustedOrigins: [
-        "*.intern3.chat",
+        ...siteConfig.auth.allowedDomainGlobs,
         process.env.VERCEL_URL!,
-        "https://intern3.chat",
+        ...siteConfig.auth.allowedOrigins,
         "http://localhost:3000",
         "https://localhost:3000"
     ].filter(Boolean),
@@ -47,7 +48,7 @@ export const auth = betterAuth({
         }),
         jwt({
             jwt: {
-                audience: "intern3",
+                audience: siteConfig.auth.audience,
                 expirationTime: "6h"
             },
             jwks: {

@@ -21,7 +21,8 @@
         "noEmit": true,
         "paths": {
             "@/*": ["../src/*"],
-            "@/convex/*": ["./*"]
+            "@/convex/*": ["./*"],
+            "@/config/*": ["../config/*"]
         }
     },
     "include": ["./**/*", "../src/lib/browser-env.ts"],

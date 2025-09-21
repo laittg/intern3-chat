@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { siteConfig } from "@/config/site"
 import { useThemeManagement } from "@/hooks/use-theme-management"
 import { extractThemeColors } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
@@ -49,7 +50,7 @@ interface OnboardingDialogProps {
 const ONBOARDING_STEPS: OnboardingStep[] = [
     {
         id: "welcome",
-        title: "Welcome to intern3.chat",
+        title: `Welcome to ${siteConfig.name}`,
         icon: Sparkles,
         content: (
             <div className="flex flex-col items-center space-y-4 text-center">
@@ -57,7 +58,9 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                     <Logo />
                 </div>
                 <div className="text-center">
-                    <h3 className="font-bold text-2xl text-foreground">Welcome to intern3.chat</h3>
+                    <h3 className="font-bold text-2xl text-foreground">
+                        Welcome to {siteConfig.name}
+                    </h3>
                     <span className="text-muted-foreground text-sm">
                         The best open-source chatbot. Made by interns, for interns.
                     </span>
@@ -74,8 +77,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                 <ThemeSelector />
                 <div className="space-y-2 text-left">
                     <p className="text-muted-foreground text-xs leading-relaxed">
-                        intern3 has a built-in theme switcher. Try some of the popular ones above!
-                        You can always change this later in settings.
+                        {siteConfig.branding.organization} has a built-in theme switcher. Try some
+                        of the popular ones above! You can always change this later in settings.
                     </p>
                 </div>
             </div>
@@ -95,7 +98,9 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                                     <Logo />
                                 </div>
                                 <div>
-                                    <h4 className="font-semibold text-sm">intern3.chat Built-in</h4>
+                                    <h4 className="font-semibold text-sm">
+                                        {siteConfig.name} Built-in
+                                    </h4>
                                     <p className="mt-0.5 text-muted-foreground text-xs">
                                         Access built-in AI models without needing API keys. Rate
                                         limits may apply.
@@ -128,7 +133,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
                         Use for free with basic built-in models, or connect your own API keys to use
-                        any model you want. intern3.chat works with all leading models (OpenAI,
+                        any model you want. {siteConfig.name} works with all leading models (OpenAI,
                         Gemini, Claude, etc.), and even custom OpenAI-compatible providers.
                     </p>
                 </div>
@@ -213,8 +218,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                 <div className="space-y-3">
                     <h3 className="font-semibold text-xl tracking-tight">Powerful Integrations</h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                        intern3 comes built-in with powerful connectors to enhance your AI
-                        experience.
+                        {siteConfig.branding.organization} comes built-in with powerful connectors
+                        to enhance your AI experience.
                     </p>
                 </div>
             </div>
@@ -271,8 +276,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                         You're all set!
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                        Start chatting with AI and make intern3.chat truly yours! Don't forget to
-                        checkout the Settings page to customize your experience.
+                        Start chatting with AI and make {siteConfig.name} truly yours! Don't forget
+                        to checkout the Settings page to customize your experience.
                     </p>
                 </div>
             </div>

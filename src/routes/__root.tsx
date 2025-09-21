@@ -4,6 +4,7 @@ import { HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
 import { ThemeScript } from "@/components/theme-script"
+import { siteConfig } from "@/config/site"
 import { auth } from "@/lib/auth"
 import globals_css from "@/styles/globals.css?url"
 import { createServerFn } from "@tanstack/react-start"
@@ -11,9 +12,9 @@ import { getHeaders } from "@tanstack/react-start/server"
 import { Providers } from "../providers"
 
 // Configurable site metadata
-const SITE_TITLE = "intern3.chat"
-const SITE_DESCRIPTION = "Powerful AI chatbot. By interns, for interns."
-const SITE_URL = "https://intern3.chat" // Update this to your actual domain
+const SITE_TITLE = siteConfig.name
+const SITE_DESCRIPTION = siteConfig.siteDescription
+const SITE_URL = siteConfig.liveUrl
 
 const getAccessToken = createServerFn().handler(async (ctx) => {
     const headers = await getHeaders()

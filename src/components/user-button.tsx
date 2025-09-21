@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { siteConfig } from "@/config/site"
 import { authClient } from "@/lib/auth-client"
 import { queryClient } from "@/providers"
 import { GitHubIcon, XIcon } from "@daveyplate/better-auth-ui"
@@ -107,7 +108,7 @@ export function UserButton() {
                     <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <a href="https://docs.intern3.chat" target="_blank" rel="noopener noreferrer">
+                    <a href={siteConfig.docsUrl} target="_blank" rel="noopener noreferrer">
                         <BookText className="h-4 w-4" />
                         <span>Docs</span>
                     </a>
@@ -118,17 +119,13 @@ export function UserButton() {
                     <span>About Us</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <a
-                        href="https://github.com/intern3-chat/intern3-chat"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
+                    <a href={siteConfig.social.github} target="_blank" rel="noopener noreferrer">
                         <GitHubIcon className="h-4 w-4" />
                         <span>GitHub</span>
                     </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <a href="https://x.com/intern3chat" target="_blank" rel="noopener noreferrer">
+                    <a href={siteConfig.social.x} target="_blank" rel="noopener noreferrer">
                         <XIcon className="h-4 w-4" />
                         <span>Twitter</span>
                     </a>

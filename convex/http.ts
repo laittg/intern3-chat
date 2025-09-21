@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site"
 import { corsRouter } from "convex-helpers/server/cors"
 import { httpRouter } from "convex/server"
 import { getFile, uploadFile } from "./attachments"
@@ -7,12 +8,7 @@ import { transcribeAudio } from "./speech_to_text"
 
 const http = httpRouter()
 const cors = corsRouter(http, {
-    allowedOrigins: [
-        "http://localhost:3000",
-        "https://intern3.vercel.app",
-        "https://intern3.chat",
-        "https://www.intern3.chat"
-    ],
+    allowedOrigins: ["http://localhost:3000", ...siteConfig.auth.allowedOrigins],
     allowedHeaders: ["Content-Type", "Authorization"],
     allowCredentials: true
 })

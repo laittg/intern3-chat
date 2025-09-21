@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site"
 import type { Infer } from "convex/values"
 import dedent from "ts-dedent"
 import type { AbilityId } from "../lib/toolkit"
@@ -16,7 +17,7 @@ export const buildPrompt = (
     const utcDate = `${now.getUTCDate().toString().padStart(2, "0")}-${(now.getUTCMonth() + 1).toString().padStart(2, "0")}-${now.getUTCFullYear()}`
 
     const layers: string[] = [
-        `You are a helpful assistant inside a chatbot called "intern3-chat".`,
+        `You are a helpful assistant inside a chatbot called "${siteConfig.branding.chatbotName}".`,
         dedent`## Formatting
 - You should output in markdown format. LaTeX is also supported!
 - Inline math: Use $$like this$$ for inline LaTeX

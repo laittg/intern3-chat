@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { experimental_createMCPClient as createMCPClient } from "ai"
 import type { CoreTool } from "ai"
@@ -72,7 +73,7 @@ export const MCPAdapter: ToolAdapter = async ({ enabledTools, userSettings }) =>
                 console.log(`[MCP] Creating MCP client for ${server.name}...`)
                 const client = await createMCPClient({
                     transport,
-                    name: `intern3-chat-${server.name}`
+                    name: `${siteConfig.branding.connectorsPrefix}-${server.name}`
                 })
 
                 console.log(`[MCP] Successfully created client for ${server.name}`)

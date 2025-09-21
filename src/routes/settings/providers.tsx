@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { siteConfig } from "@/config/site"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import {
@@ -660,7 +661,9 @@ function ProvidersSettings() {
                                     <Logo />
                                 </div>
                                 <div>
-                                    <h4 className="font-semibold text-sm">intern3.chat Built-in</h4>
+                                    <h4 className="font-semibold text-sm">
+                                        {siteConfig.name} Built-in
+                                    </h4>
                                     <p className="mt-0.5 text-muted-foreground text-xs">
                                         Access built-in AI models without needing API keys. Rate
                                         limits may apply.
