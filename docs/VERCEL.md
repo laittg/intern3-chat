@@ -155,7 +155,7 @@ In your **Convex Dashboard** (Deployment → Settings), add:
 
 ```bash
 VITE_BETTER_AUTH_URL=<inherit>
-ENCRYPTION_KEY=<inherit>
+ENCRYPTION_KEY="<match the Vercel encryption key>"
 
 # Default API keys (when users don't provide their own)
 OPENAI_API_KEY=sk-...
