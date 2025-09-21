@@ -41,7 +41,7 @@ A modern, feature-rich AI chat application built by interns, for interns. It's t
 Simply visit [https://intern3.chat](https://intern3.chat) and sign up for an account.
 
 ### Option 2: Self-Hosted Deployment
-Follow the [Vercel deployment guide](/VERCEL.md) to set up your own instance.
+Follow the [Vercel deployment guide](/docs/VERCEL.md) to set up your own instance.
 
 
 
