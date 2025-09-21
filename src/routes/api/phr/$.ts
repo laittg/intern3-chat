@@ -2,6 +2,8 @@ import { createServerFileRoute } from "@tanstack/react-start/server"
 
 const POSTHOG_HOST = process.env.VITE_POSTHOG_HOST
 
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304])
+
 function filterHeaders(headers: Headers): Record<string, string> {
     const filtered: Record<string, string> = {}
     for (const [key, value] of headers.entries()) {
@@ -23,8 +25,10 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
             headers: filterHeaders(request.headers)
         })
 
+        const status = response.status
+        const hasBody = !NULL_BODY_STATUSES.has(status)
         // Read the response body as ArrayBuffer to properly handle binary/compressed data
-        const body = await response.arrayBuffer()
+        const body = hasBody ? await response.arrayBuffer() : null
 
         // Filter out headers that might be incorrect after decompression
         const responseHeaders = Object.fromEntries(
@@ -35,8 +39,8 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
             )
         )
 
-        return new Response(body, {
-            status: response.status,
+        return new Response(hasBody ? body : null, {
+            status,
             statusText: response.statusText,
             headers: {
                 ...responseHeaders,
@@ -61,7 +65,9 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
         })
 
         // Read the response body to handle potential compression
-        const responseBody = await response.arrayBuffer()
+        const status = response.status
+        const hasBody = !NULL_BODY_STATUSES.has(status)
+        const responseBody = hasBody ? await response.arrayBuffer() : null
 
         // Filter out headers that might be incorrect after decompression
         const responseHeaders = Object.fromEntries(
@@ -72,8 +78,8 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
             )
         )
 
-        return new Response(responseBody, {
-            status: response.status,
+        return new Response(hasBody ? responseBody : null, {
+            status,
             statusText: response.statusText,
             headers: {
                 ...responseHeaders,
@@ -92,7 +98,9 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
             headers: filterHeaders(request.headers)
         })
 
-        const responseBody = await response.arrayBuffer()
+        const status = response.status
+        const hasBody = !NULL_BODY_STATUSES.has(status)
+        const responseBody = hasBody ? await response.arrayBuffer() : null
 
         // Filter out headers that might be incorrect
         const responseHeaders = Object.fromEntries(
@@ -103,8 +111,8 @@ export const ServerRoute = createServerFileRoute("/api/phr/$").methods({
             )
         )
 
-        return new Response(responseBody, {
-            status: response.status,
+        return new Response(hasBody ? responseBody : null, {
+            status,
             statusText: response.statusText,
             headers: {
                 ...responseHeaders,
