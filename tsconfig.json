@@ -10,7 +10,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@/convex/*": ["./convex/*"],
-            "@/config/*": ["./config/*"]
+            "@/config/*": ["src/config/*"]
         }
     }
 }

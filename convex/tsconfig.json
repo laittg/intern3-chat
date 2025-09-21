@@ -22,7 +22,7 @@
         "paths": {
             "@/*": ["../src/*"],
             "@/convex/*": ["./*"],
-            "@/config/*": ["../config/*"]
+            "@/config/*": ["../src/config/*"]
         }
     },
     "include": ["./**/*", "../src/lib/browser-env.ts"],
