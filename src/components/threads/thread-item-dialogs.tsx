@@ -21,11 +21,9 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { getProjectColorClasses } from "@/lib/project-constants"
-import { cn } from "@/lib/utils"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { FolderOpen, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { Thread } from "./types"
@@ -288,9 +286,6 @@ export const ThreadItemDialogs = memo(
 
                                 {/* Folder options */}
                                 {projects.map((project) => {
-                                    const colorClasses = getProjectColorClasses(
-                                        project.color as any
-                                    )
                                     return (
                                         <div
                                             key={project._id}
@@ -301,20 +296,6 @@ export const ThreadItemDialogs = memo(
                                                 htmlFor={project._id}
                                                 className="flex cursor-pointer items-center gap-1"
                                             >
-                                                <div
-                                                    className={cn(
-                                                        "mt-1 flex size-5 self-baseline",
-                                                        colorClasses,
-                                                        "bg-transparent dark:bg-transparent"
-                                                    )}
-                                                >
-                                                    <FolderOpen
-                                                        className="size-4"
-                                                        fill="currentColor"
-                                                        strokeWidth={1}
-                                                        stroke="var(--foreground)"
-                                                    />
-                                                </div>
                                                 <span>{project.name}</span>
                                             </Label>
                                         </div>

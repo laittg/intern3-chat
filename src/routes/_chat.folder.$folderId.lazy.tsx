@@ -3,6 +3,9 @@ import { Messages } from "@/components/messages"
 import { MultimodalInput } from "@/components/multimodal-input"
 import { SignupMessagePrompt } from "@/components/signup-message-prompt"
 import { StickToBottomButton } from "@/components/stick-to-bottom-button"
+import { ThreadActionsMenu } from "@/components/threads/thread-actions-menu"
+import { ThreadItemDialogs } from "@/components/threads/thread-item-dialogs"
+import type { Thread } from "@/components/threads/types"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { MODELS_SHARED } from "@/convex/lib/models"
@@ -11,6 +14,7 @@ import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
+import { useFunction } from "@/hooks/use-function"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
@@ -24,7 +28,7 @@ import { createLazyFileRoute } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Clock, Pin } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useStickToBottom } from "use-stick-to-bottom"
 
 interface FolderChatProps {
@@ -89,6 +93,47 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
         )
     }
 
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+    const [showRenameDialog, setShowRenameDialog] = useState(false)
+    const [showMoveDialog, setShowMoveDialog] = useState(false)
+    const [currentThread, setCurrentThread] = useState<Thread | null>(null)
+
+    const handleOpenRenameDialog = useFunction((thread: Thread) => {
+        setCurrentThread(thread)
+        setShowRenameDialog(true)
+    })
+
+    const handleOpenMoveDialog = useFunction((thread: Thread) => {
+        setCurrentThread(thread)
+        setShowMoveDialog(true)
+    })
+
+    const handleOpenDeleteDialog = useFunction((thread: Thread) => {
+        setCurrentThread(thread)
+        setShowDeleteDialog(true)
+    })
+
+    const handleCloseRenameDialog = useFunction(() => {
+        setShowRenameDialog(false)
+    })
+
+    const handleCloseMoveDialog = useFunction(() => {
+        setShowMoveDialog(false)
+    })
+
+    const handleCloseDeleteDialog = useFunction(() => {
+        setShowDeleteDialog(false)
+    })
+
+    useEffect(() => {
+        if (!showRenameDialog && !showMoveDialog && !showDeleteDialog) {
+            const timeout = setTimeout(() => setCurrentThread(null), 150)
+            return () => clearTimeout(timeout)
+        }
+    }, [showDeleteDialog, showMoveDialog, showRenameDialog])
+
+    const projectsList = "error" in projects ? [] : projects
+
     // Recent threads component for FolderHero
     const RecentThreads = () => {
         const isRootPath = location.pathname === "/"
@@ -131,7 +176,7 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
             }
         }, [recentThreads.status])
 
-        const threads = recentThreads?.results || []
+        const threads = (recentThreads?.results || []) as Thread[]
 
         const containerAnimProps = isRootPath
             ? {
@@ -178,25 +223,29 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
 
                         return (
                             <motion.div key={thread._id} {...threadAnimProps}>
-                                <Link
-                                    to="/thread/$threadId"
-                                    params={{ threadId: thread._id }}
-                                    className="flex items-center gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-accent/50"
-                                >
-                                    <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-accent/50">
+                                    <Link
+                                        to="/thread/$threadId"
+                                        params={{ threadId: thread._id }}
+                                        className="min-w-0 flex-1 text-left"
+                                    >
                                         <div className="truncate font-medium text-sm">
                                             {thread.title}
                                         </div>
                                         <div className="text-muted-foreground text-xs">
                                             {format(thread.createdAt, "MMM d, yyyy")}
                                         </div>
+                                    </Link>
+                                    <div className="ml-2 flex items-center gap-1 text-muted-foreground">
+                                        {thread.pinned && <Pin className="h-4 w-4" />}
+                                        <ThreadActionsMenu
+                                            thread={thread}
+                                            onOpenRenameDialog={handleOpenRenameDialog}
+                                            onOpenMoveDialog={handleOpenMoveDialog}
+                                            onOpenDeleteDialog={handleOpenDeleteDialog}
+                                        />
                                     </div>
-                                    {thread.pinned && (
-                                        <div className="text-muted-foreground">
-                                            <Pin className="h-4 w-4" />
-                                        </div>
-                                    )}
-                                </Link>
+                                </div>
                             </motion.div>
                         )
                     })}
@@ -279,6 +328,16 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
                     </motion.div>
                 )}
             </AnimatePresence>
+            <ThreadItemDialogs
+                showDeleteDialog={showDeleteDialog}
+                showRenameDialog={showRenameDialog}
+                showMoveDialog={showMoveDialog}
+                onCloseDeleteDialog={handleCloseDeleteDialog}
+                onCloseRenameDialog={handleCloseRenameDialog}
+                onCloseMoveDialog={handleCloseMoveDialog}
+                currentThread={currentThread}
+                projects={projectsList}
+            />
         </div>
     )
 }

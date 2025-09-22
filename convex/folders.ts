@@ -105,8 +105,8 @@ export const updateProject = mutation({
 
 // Delete/Archive a project
 export const deleteProject = mutation({
-    args: { projectId: v.id("projects") },
-    handler: async (ctx, { projectId }) => {
+    args: { projectId: v.id("projects"), deleteThreads: v.optional(v.boolean()) },
+    handler: async (ctx, { projectId, deleteThreads }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return { error: user.error }
 
@@ -124,15 +124,27 @@ export const deleteProject = mutation({
             .first()
 
         if (threadsInProject) {
-            // Archive instead of delete if it has threads
-            await ctx.db.patch(projectId, {
-                archived: true,
-                updatedAt: Date.now()
-            })
-            return { success: true, archived: true }
+            if (!deleteThreads) {
+                await ctx.db.patch(projectId, {
+                    archived: true,
+                    updatedAt: Date.now()
+                })
+                return { success: true, archived: true }
+            }
+
+            const allThreads = await ctx.db
+                .query("threads")
+                .withIndex("byAuthorAndProject", (q) =>
+                    q.eq("authorId", user.id).eq("projectId", projectId)
+                )
+                .collect()
+
+            for (const thread of allThreads) {
+                await ctx.db.delete(thread._id)
+                await aggregrateThreadsByFolder.delete(ctx, thread)
+            }
         }
 
-        // Actually delete if no threads
         await ctx.db.delete(projectId)
         return { success: true, deleted: true }
     }

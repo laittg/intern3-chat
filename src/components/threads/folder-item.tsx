@@ -9,6 +9,7 @@ import {
     AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Dialog,
     DialogContent,
@@ -56,6 +57,7 @@ export function FolderItem({
     const [editColor, setEditColor] = useState<string>("blue")
     const [isEditing, setIsEditing] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [confirmDeleteAll, setConfirmDeleteAll] = useState(numThreads === 0)
 
     const colorClasses = getProjectColorClasses(project.color as ProjectColorId)
     const updateProjectMutation = useMutation(api.folders.updateProject)
@@ -105,7 +107,16 @@ export function FolderItem({
                 navigate({ to: "/", replace: true })
             }
 
-            const result = await deleteProjectMutation({ projectId: project._id })
+            if (numThreads > 0 && !confirmDeleteAll) {
+                toast.error("Please confirm deletion of all threads before proceeding")
+                setIsDeleting(false)
+                return
+            }
+
+            const result = await deleteProjectMutation({
+                projectId: project._id,
+                deleteThreads: confirmDeleteAll
+            })
 
             if (result && "error" in result) {
                 toast.error(
@@ -117,6 +128,7 @@ export function FolderItem({
                 toast.success("Folder deleted successfully")
             }
             setShowDeleteDialog(false)
+            setConfirmDeleteAll(numThreads === 0)
         } catch (error) {
             console.error("Failed to delete folder:", error)
             toast.error("Failed to delete folder")
@@ -130,6 +142,20 @@ export function FolderItem({
         setEditDescription(project.description || "")
         setEditColor(project.color || "blue")
         setShowEditDialog(true)
+    }
+
+    const openDeleteDialog = () => {
+        if (isDeleting) return
+        setConfirmDeleteAll(numThreads === 0)
+        setShowDeleteDialog(true)
+    }
+
+    const handleDeleteDialogOpenChange = (open: boolean) => {
+        if (!open && isDeleting) return
+        setShowDeleteDialog(open)
+        if (!open) {
+            setConfirmDeleteAll(numThreads === 0)
+        }
     }
     const { setOpenMobile } = useSidebar()
 
@@ -194,10 +220,7 @@ export function FolderItem({
                                 <Edit3 className="h-4 w-4" />
                                 Edit folder
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => setShowDeleteDialog(true)}
-                                variant="destructive"
-                            >
+                            <DropdownMenuItem onClick={openDeleteDialog} variant="destructive">
                                 <Trash2 className="h-4 w-4" />
                                 Delete folder
                             </DropdownMenuItem>
@@ -292,21 +315,46 @@ export function FolderItem({
             </Dialog>
 
             {/* Delete Dialog */}
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialog open={showDeleteDialog} onOpenChange={handleDeleteDialogOpenChange}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Folder</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete{" "}
-                            <span className="font-bold">{project.name}</span>?
-                            {numThreads > 0 && (
-                                <>
-                                    <br />
-                                    <br />
-                                    This folder contains {numThreads} thread
-                                    {numThreads !== 1 ? "s" : ""}. The folder will be archived
-                                    instead of deleted.
-                                </>
+                            <span>
+                                Are you sure you want to delete{" "}
+                                <span className="font-bold">{project.name}</span>?
+                            </span>
+                            {numThreads > 0 ? (
+                                <div className="mt-4 space-y-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-left">
+                                    <p className="text-destructive text-sm">
+                                        This folder contains {numThreads} thread
+                                        {numThreads !== 1 ? "s" : ""}. Deleting it will permanently
+                                        remove the folder and all of its threads. This action cannot
+                                        be undone.
+                                    </p>
+                                    <Label
+                                        htmlFor={`confirm-folder-delete-${project._id}`}
+                                        className="flex items-start gap-2 font-normal text-muted-foreground text-sm"
+                                    >
+                                        <Checkbox
+                                            id={`confirm-folder-delete-${project._id}`}
+                                            checked={confirmDeleteAll}
+                                            onCheckedChange={(checked) =>
+                                                setConfirmDeleteAll(checked === true)
+                                            }
+                                            disabled={isDeleting}
+                                            className="mt-0.5"
+                                        />
+                                        <span>
+                                            I understand this will delete the folder and every
+                                            thread it contains.
+                                        </span>
+                                    </Label>
+                                </div>
+                            ) : (
+                                <p className="mt-4 text-muted-foreground text-sm">
+                                    This action cannot be undone.
+                                </p>
                             )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -314,16 +362,14 @@ export function FolderItem({
                         <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
-                            disabled={isDeleting}
+                            disabled={isDeleting || (numThreads > 0 && !confirmDeleteAll)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             {isDeleting ? (
                                 <>
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    {numThreads > 0 ? "Archiving..." : "Deleting..."}
+                                    {"Deleting..."}
                                 </>
-                            ) : numThreads > 0 ? (
-                                "Archive"
                             ) : (
                                 "Delete"
                             )}
