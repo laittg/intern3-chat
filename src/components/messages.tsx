@@ -378,7 +378,10 @@ export function Messages({
                                                 <PartsRenderer
                                                     key={`${message.id}-text-${index}`}
                                                     part={part}
-                                                    markdown={message.role === "assistant"}
+                                                    markdown={
+                                                        message.role === "assistant" ||
+                                                        message.role === "user"
+                                                    }
                                                     id={`${message.id}-text-${index}`}
                                                     onFilePreview={handleFilePreview}
                                                     isStreaming={
@@ -397,7 +400,10 @@ export function Messages({
                                                     <PartsRenderer
                                                         key={`${message.id}-file-${index}`}
                                                         part={part}
-                                                        markdown={message.role === "assistant"}
+                                                        markdown={
+                                                            message.role === "assistant" ||
+                                                            message.role === "user"
+                                                        }
                                                         id={`${message.id}-file-${index}`}
                                                         onFilePreview={handleFilePreview}
                                                         isStreaming={
