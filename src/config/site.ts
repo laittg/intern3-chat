@@ -4,6 +4,7 @@ export const siteConfig = {
     shortName: "intern3.chat",
     description: "intern3.chat",
     siteDescription: "Powerful AI chatbot. By interns, for interns.",
+    defaultTheme: "the intern",
     domain: "intern3.chat",
     liveUrl: "https://intern3.chat",
     docsUrl: "https://docs.intern3.chat",

@@ -6,12 +6,10 @@ import {
     LoaderIcon,
     MoonIcon,
     PaintBucketIcon,
-    PlusIcon,
     Search,
     ShuffleIcon,
     SunIcon
 } from "lucide-react"
-import { useState } from "react"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import {
@@ -21,7 +19,6 @@ import {
 } from "../ui/responsive-popover"
 import { ScrollArea } from "../ui/scroll-area"
 import { Separator } from "../ui/separator"
-import { ImportThemeDialog } from "./import-theme-dialog"
 
 type ThemeButtonProps = {
     theme: FetchedTheme
@@ -92,8 +89,6 @@ function ThemeButton({ theme, isSelected, onSelect, currentMode }: ThemeButtonPr
 }
 
 export function ThemeSwitcher() {
-    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
-
     const {
         themeState,
         searchQuery,
@@ -101,7 +96,6 @@ export function ThemeSwitcher() {
         selectedThemeUrl,
         isLoadingThemes,
         filteredThemes,
-        handleThemeImported,
         handleThemeSelect,
         toggleMode,
         randomizeTheme
@@ -109,11 +103,6 @@ export function ThemeSwitcher() {
 
     return (
         <>
-            <ImportThemeDialog
-                open={isImportDialogOpen}
-                onOpenChange={setIsImportDialogOpen}
-                onThemeImported={handleThemeImported}
-            />
             <div className="flex items-center gap-2">
                 <Button
                     variant="outline"
@@ -143,9 +132,6 @@ export function ThemeSwitcher() {
                         title="Theme Selector"
                         description="Choose a theme for your interface"
                     >
-                        {/* Note: Title and description are already in ResponsivePopoverContent */}
-                        <Separator className="hidden md:block" />
-
                         {/* Search Input */}
                         <div className="hidden p-2 md:block">
                             <div className="relative">
@@ -163,7 +149,9 @@ export function ThemeSwitcher() {
                         {/* Theme Count and Controls */}
                         <div className="flex items-center justify-between px-3 py-2">
                             <div className="text-muted-foreground text-sm">
-                                {isLoadingThemes ? "Loading..." : `${filteredThemes.length} themes`}
+                                {isLoadingThemes
+                                    ? "Loading..."
+                                    : `${filteredThemes.length} theme${filteredThemes.length === 1 ? "" : "s"}`}
                             </div>
                             <div className="flex items-center gap-1">
                                 {/* Randomizer */}
@@ -178,26 +166,12 @@ export function ThemeSwitcher() {
                                     <ShuffleIcon className="h-3.5 w-3.5" />
                                     <span className="sr-only">Random theme</span>
                                 </Button>
-
-                                {/* Import Button */}
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        setIsImportDialogOpen(true)
-                                    }}
-                                >
-                                    <PlusIcon className="h-3.5 w-3.5" />
-                                    Import
-                                </Button>
                             </div>
                         </div>
                         <Separator />
 
                         {/* Themes List */}
-                        <ScrollArea className="h-80">
+                        <ScrollArea className="h-80 [&_[data-slot=scroll-area-scrollbar][data-orientation=horizontal]]:h-2 [&_[data-slot=scroll-area-scrollbar]]:w-2 [&_[data-slot=scroll-area-scrollbar]]:p-px">
                             <div className="p-3">
                                 {isLoadingThemes ? (
                                     <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
@@ -230,9 +204,6 @@ export function ThemeSwitcher() {
                                             </div>
                                         )}
                                         <div className="mb-2">
-                                            <h4 className="mb-1 text-muted-foreground text-xs">
-                                                Built-in Themes
-                                            </h4>
                                             <div className="mt-1 grid grid-cols-1 gap-2">
                                                 {filteredThemes
                                                     .filter((theme) => theme.type === "built-in")

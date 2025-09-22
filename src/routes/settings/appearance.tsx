@@ -1,5 +1,4 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
-import { ImportThemeDialog } from "@/components/themes/import-theme-dialog"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,18 +21,15 @@ import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import {
     CheckCircle,
-    ExternalLinkIcon,
     Eye,
     MoonIcon,
-    PlusIcon,
     RectangleHorizontal,
     Search,
-    ShuffleIcon,
     Square,
     SunIcon,
     Trash2
 } from "lucide-react"
-import { memo, useState } from "react"
+import { memo } from "react"
 
 type ThemeCardProps = {
     theme: FetchedTheme
@@ -142,7 +138,6 @@ const ThemeCard = memo(({ theme, isSelected, onSelect, onDelete, currentMode }: 
 })
 
 function AppearanceSettings() {
-    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
     const { chatWidthState, setChatWidth } = useChatWidthStore()
 
     const {
@@ -155,11 +150,9 @@ function AppearanceSettings() {
         filteredThemes,
         customThemes,
         builtInThemes,
-        handleThemeImported,
         handleThemeSelect,
         handleThemeDelete,
-        toggleMode,
-        randomizeTheme
+        toggleMode
     } = useThemeManagement()
 
     if (!session.user?.id) {
@@ -182,13 +175,7 @@ function AppearanceSettings() {
             title="Appearance"
             description="Customize the look and feel of your interface."
         >
-            <ImportThemeDialog
-                open={isImportDialogOpen}
-                onOpenChange={setIsImportDialogOpen}
-                onThemeImported={handleThemeImported}
-            />
-
-            <div className="space-y-8">
+            <div className="space-y-8 pr-2">
                 {/* Display Mode Section */}
                 <div className="space-y-4">
                     <div>
@@ -332,7 +319,7 @@ function AppearanceSettings() {
                     <div>
                         <h3 className="font-semibold text-foreground">Themes</h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            Select and manage your color themes
+                            Choose your favorite theme
                         </p>
                     </div>
 
@@ -349,19 +336,6 @@ function AppearanceSettings() {
                                 />
                             </div>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={randomizeTheme}
-                            disabled={isLoadingThemes || filteredThemes.length === 0}
-                            title="Random theme"
-                        >
-                            <ShuffleIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
-                            <PlusIcon className="h-4 w-4" />
-                            Import Theme
-                        </Button>
                     </div>
 
                     {/* Theme Content */}
@@ -423,17 +397,7 @@ function AppearanceSettings() {
 
                     {/* Footer */}
                     <div className="flex items-center justify-center gap-1 border-border/50 border-t pt-6 text-muted-foreground text-sm">
-                        Get more themes at
-                        <a
-                            href="https://tweakcn.com"
-                            // biome-ignore lint/a11y/noBlankTarget: tweakcn.com is trusted
-                            target="_blank"
-                            rel="noopener"
-                            className="ml-1 inline-flex items-center font-medium text-primary hover:underline"
-                        >
-                            tweakcn.com
-                            <ExternalLinkIcon className="ml-1 size-3" />
-                        </a>
+                        &nbsp;
                     </div>
                 </div>
             </div>
