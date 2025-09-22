@@ -186,27 +186,17 @@ export function FolderItem({
                         >
                             <div
                                 className={cn(
-                                    "flex size-3 flex-shrink-0 items-center justify-center rounded-full text-xs",
+                                    "flex size-3 flex-shrink-0 items-center justify-center rounded-full text-xs opacity-70",
                                     colorClasses.split(" ").slice(1).join(" ")
                                 )}
                             />
-                            <span className="truncate font-medium">{project.name}</span>
+                            <span className="truncate">{project.name}</span>
                         </Link>
                     </SidebarMenuButton>
 
                     <DropdownMenu onOpenChange={setIsMenuOpen}>
                         <DropdownMenuTrigger asChild>
                             <button type="button" className={"relative rounded p-1"}>
-                                <span
-                                    className={cn(
-                                        "-translate-y-1/2 absolute top-[50%] right-2 ml-auto flex-shrink-0 rounded bg-input px-0.5 py-0.25 text-muted-foreground text-xs leading-none transition-opacity",
-                                        isMenuOpen
-                                            ? "opacity-0"
-                                            : "opacity-100 group-hover/item:opacity-0"
-                                    )}
-                                >
-                                    {numThreads}
-                                </span>
                                 <MoreHorizontal
                                     className={cn(
                                         "mr-1 h-4 w-4 transition-opacity",
@@ -277,7 +267,7 @@ export function FolderItem({
                                         onClick={() => setEditColor(color.id)}
                                         disabled={isEditing}
                                         className={cn(
-                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 opacity-70 transition-all",
                                             color.class.split(" ").slice(1).join(" "),
                                             editColor === color.id
                                                 ? "scale-110 border-foreground"

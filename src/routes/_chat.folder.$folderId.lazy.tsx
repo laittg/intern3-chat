@@ -26,7 +26,7 @@ import { Link } from "@tanstack/react-router"
 import { useLocation } from "@tanstack/react-router"
 import { createLazyFileRoute } from "@tanstack/react-router"
 import { format } from "date-fns"
-import { Clock, Pin } from "lucide-react"
+import { Pin } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useStickToBottom } from "use-stick-to-bottom"
@@ -186,30 +186,12 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
               }
             : {}
 
-        if (threads.length === 0)
-            return (
-                <motion.div {...containerAnimProps} className="mt-8 w-full px-1">
-                    <div className="mb-4 flex items-center gap-2 font-medium text-muted-foreground text-sm">
-                        <Clock className="size-4" />
-                        Recent conversations
-                    </div>
-                    <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
-                        <div className="col-span-full">
-                            <div className="flex items-center justify-center rounded-lg border bg-background/50 px-4 py-3">
-                                <p className="text-muted-foreground text-sm">
-                                    No recent conversations
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )
+        if (threads.length === 0) return null
 
         return (
             <motion.div {...containerAnimProps} className="mt-8 w-full px-1">
                 <div className="mb-4 flex items-center gap-2 font-medium text-muted-foreground text-sm">
-                    <Clock className="size-4" />
-                    Recent conversations
+                    Threads in this folder
                 </div>
                 <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
                     {threads.map((thread, index) => {
