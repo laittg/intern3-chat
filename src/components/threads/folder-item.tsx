@@ -44,10 +44,12 @@ import type { Project } from "./types"
 
 export function FolderItem({
     project,
-    numThreads
+    numThreads,
+    isActive = false
 }: {
     project: Project
     numThreads: number
+    isActive?: boolean
 }) {
     const [showEditDialog, setShowEditDialog] = useState(false)
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -65,6 +67,7 @@ export function FolderItem({
     const navigate = useNavigate()
     const params = useParams({ strict: false }) as { folderId?: string }
     const isCurrentFolder = params.folderId === project._id
+    const isHighlighted = isCurrentFolder || isActive
 
     const handleEdit = async () => {
         const trimmedName = editName.trim()
@@ -166,14 +169,14 @@ export function FolderItem({
                     className={cn(
                         "group/item flex w-full items-center rounded-sm hover:bg-accent/50",
                         isMenuOpen && "bg-accent/50",
-                        isCurrentFolder && "bg-accent/60"
+                        isHighlighted && "bg-accent/60"
                     )}
                 >
                     <SidebarMenuButton
                         asChild
                         className={cn(
                             "flex-1 hover:bg-transparent",
-                            isCurrentFolder && "text-foreground"
+                            isHighlighted && "text-foreground"
                         )}
                     >
                         <Link

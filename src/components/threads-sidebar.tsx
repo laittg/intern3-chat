@@ -12,15 +12,15 @@ import {
     useSidebar
 } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { useFunction } from "@/hooks/use-function"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { authClient } from "@/lib/auth-client"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
-import { useNavigate } from "@tanstack/react-router"
-import { useConvexAuth } from "convex/react"
+import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import { useConvexAuth, useQuery as useConvexQuery } from "convex/react"
 import { isAfter, isToday, isYesterday, subDays } from "date-fns"
 import { Image, Loader2, Pin, Search } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -136,8 +136,14 @@ export function ThreadsSidebar() {
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const { data: session } = authClient.useSession()
     const navigate = useNavigate()
+    const params = useParams({ strict: false }) as {
+        threadId?: string
+        folderId?: string
+    }
+    const activeThreadId = params.threadId
+    const routeFolderId = params.folderId as Id<"projects"> | undefined
     const isMobile = useIsMobile()
-    const { setOpen, setOpenMobile } = useSidebar()
+    const { setOpenMobile } = useSidebar()
     const auth = useConvexAuth()
 
     // Get all threads (not filtered by project anymore)
@@ -159,6 +165,18 @@ export function ThreadsSidebar() {
         {
             initialNumItems: 50
         }
+    )
+
+    const threadFromList = useMemo(() => {
+        if (!activeThreadId) return undefined
+        return allThreads.find((thread) => thread._id === activeThreadId)
+    }, [activeThreadId, allThreads])
+
+    const shouldFetchActiveThread = Boolean(activeThreadId && !threadFromList)
+
+    const activeThreadResponse = useConvexQuery(
+        api.threads.getThread,
+        shouldFetchActiveThread ? { threadId: activeThreadId as Id<"threads"> } : "skip"
     )
 
     // Get projects
@@ -188,6 +206,22 @@ export function ThreadsSidebar() {
     const groupedNonProjectThreads = useMemo(() => {
         return groupThreadsByTime(allThreads)
     }, [allThreads])
+
+    const activeThreadFolderId = useMemo(() => {
+        if (!activeThreadId) return undefined
+
+        if (threadFromList?.projectId) {
+            return threadFromList.projectId
+        }
+
+        if (!activeThreadResponse || "error" in activeThreadResponse) {
+            return undefined
+        }
+
+        return activeThreadResponse.projectId || undefined
+    }, [activeThreadId, threadFromList, activeThreadResponse])
+
+    const activeFolderId = routeFolderId ?? activeThreadFolderId
 
     // Dialog handlers
     const handleOpenRenameDialog = useFunction((thread: Thread) => {
@@ -317,6 +351,7 @@ export function ThreadsSidebar() {
                                         key={project._id}
                                         project={project}
                                         numThreads={project.threadCount}
+                                        isActive={project._id === activeFolderId}
                                     />
                                 )
                             })}
