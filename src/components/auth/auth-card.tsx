@@ -2,14 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage
-} from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import { Separator } from "@/components/ui/separator"
@@ -25,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { z } from "zod"
-import { GithubIcon, GoogleIcon, TwitchIcon } from "../brand-icons"
+import { GoogleIcon } from "../brand-icons"
 
 const emailSchema = z.object({
     email: z.string().email({
@@ -152,7 +145,7 @@ export function AuthCard() {
     })
 
     const socialSignInMutation = useMutation({
-        mutationFn: async (provider: "google" | "github" | "twitch") => {
+        mutationFn: async (provider: "google") => {
             return await authClient.signIn.social({
                 provider
             })
@@ -221,7 +214,7 @@ export function AuthCard() {
                         </AnimatePresence>
                     </CardHeader>
 
-                    <div className="relative overflow-hidden">
+                    <div className="relative mt-2.5 overflow-hidden">
                         <AnimatePresence mode="wait">
                             {step === "email" ? (
                                 <motion.div
@@ -251,36 +244,6 @@ export function AuthCard() {
                                                 )}
                                                 Continue with Google
                                             </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="h-10 w-full gap-2"
-                                                onClick={() =>
-                                                    socialSignInMutation.mutate("github")
-                                                }
-                                                disabled={socialSignInMutation.isPending}
-                                            >
-                                                {socialSignInMutation.isPending ? (
-                                                    <Loader2 className="size-4 shrink-0 animate-spin" />
-                                                ) : (
-                                                    <GithubIcon className="size-5 shrink-0" />
-                                                )}
-                                                Continue with GitHub
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="h-10 w-full gap-2"
-                                                onClick={() =>
-                                                    socialSignInMutation.mutate("twitch")
-                                                }
-                                                disabled={socialSignInMutation.isPending}
-                                            >
-                                                {socialSignInMutation.isPending ? (
-                                                    <Loader2 className="size-4 shrink-0 animate-spin" />
-                                                ) : (
-                                                    <TwitchIcon className="size-5 shrink-0" />
-                                                )}
-                                                Continue with Twitch
-                                            </Button>
                                         </motion.div>
 
                                         <motion.div
@@ -291,9 +254,9 @@ export function AuthCard() {
                                             <div className="absolute inset-0 flex items-center">
                                                 <Separator />
                                             </div>
-                                            <div className="relative flex justify-center text-xs uppercase">
-                                                <span className="bg-background px-2 text-muted-foreground">
-                                                    Or continue with email
+                                            <div className="relative flex justify-center text-xs">
+                                                <span className="bg-card px-4 text-muted-foreground tracking-wide">
+                                                    or continue with email
                                                 </span>
                                             </div>
                                         </motion.div>
@@ -310,7 +273,6 @@ export function AuthCard() {
                                                         name="email"
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <FormLabel>Email</FormLabel>
                                                                 <FormControl>
                                                                     <Input
                                                                         type="email"
@@ -327,9 +289,9 @@ export function AuthCard() {
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     transition={{ delay: 0.25, duration: 0.3 }}
-                                                    className="mt-3 text-muted-foreground text-sm"
+                                                    className="mt-3 ml-3 text-muted-foreground text-sm"
                                                 >
-                                                    We'll send you a 6-digit verification code.
+                                                    we'll send you a 6-digit verification code
                                                 </motion.div>
                                                 <motion.div
                                                     className="mt-6 w-full"
