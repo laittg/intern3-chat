@@ -1,7 +1,7 @@
 import type { Tool } from "ai"
 import type { GenericActionCtx } from "convex/server"
 import type { Infer } from "convex/values"
-import type { DataModel } from "../_generated/dataModel"
+import type { DataModel, Id } from "../_generated/dataModel"
 import type { UserSettings } from "../schema/settings"
 import { MCPAdapter } from "./tools/mcp_adapter"
 import { SupermemoryAdapter } from "./tools/supermemory"
@@ -12,19 +12,26 @@ export const TOOL_ADAPTERS = [WebSearchAdapter, SupermemoryAdapter, MCPAdapter]
 export const ABILITIES = ["web_search", "supermemory", "mcp"] as const
 export type AbilityId = (typeof ABILITIES)[number]
 
+export type ThreadContext = {
+    threadId: Id<"threads">
+    projectId?: Id<"projects"> | null
+}
+
 export type ConditionalToolParams = {
     ctx: GenericActionCtx<DataModel>
     enabledTools: AbilityId[]
     userSettings: Infer<typeof UserSettings>
+    threadContext?: ThreadContext
 }
 
 export const getToolkit = async (
     ctx: GenericActionCtx<DataModel>,
     enabledTools: AbilityId[],
-    userSettings: Infer<typeof UserSettings>
+    userSettings: Infer<typeof UserSettings>,
+    threadContext?: ThreadContext
 ): Promise<Record<string, Tool>> => {
     const toolResults = await Promise.all(
-        TOOL_ADAPTERS.map((adapter) => adapter({ ctx, enabledTools, userSettings }))
+        TOOL_ADAPTERS.map((adapter) => adapter({ ctx, enabledTools, userSettings, threadContext }))
     )
 
     const tools: Record<string, Tool> = {}

@@ -14,7 +14,7 @@ This project integrates Supermemory to provide persistent, user-scoped memory th
   - Calls are handled server‑side by the Supermemory tool adapter.
 - Serve (how results are fulfilled)
   - Key resolution: The server decrypts the user’s Supermemory API key just‑in‑time.
-  - Scoping: Requests include `containerTags` that always contain `userId` and may add `category:`/`tag:` entries to further narrow scope.
+  - Scoping: Requests include `containerTags` that always contain `userId` plus a project scope tag (e.g. `tag:project:{projectId}` or `tag:project:none` for unfoldered chats). Optional `category:`/`tag:` entries from metadata further narrow scope.
   - API calls: Writes go through `client.memories.add(...)`; reads go through `client.search.execute(...)`.
   - Response mapping: Results are mapped to compact objects and streamed back to the model as tool outputs, which the model then incorporates into its reply.
 
@@ -22,15 +22,17 @@ This project integrates Supermemory to provide persistent, user-scoped memory th
 - Adds two tools the model can call when enabled:
   - `add_memory`: Persist content with optional metadata for future recall.
   - `search_memories`: Semantic retrieval of previously stored content, optionally filtered.
-- Scopes all memory operations to the current user via container tags.
+- Scopes all memory operations to the current user and active folder via container tags.
 
 ## Where It’s Implemented
 - Tools and client usage: `convex/lib/tools/supermemory.ts`
   - Creates a Supermemory client with the user’s decrypted API key.
-  - `add_memory`: builds `containerTags` including `userId`, plus optional `category:` and `tag:` entries; writes via `client.memories.add`.
-  - `search_memories`: queries via `client.search.execute` with the same tag scheme; maps results to a compact structure.
+  - `add_memory`: builds `containerTags` including `userId`, an automatic project tag derived from the thread (or `tag:project:none`), plus optional `category:`/`tag:` entries; writes via `client.memories.add`.
+  - `search_memories`: queries via `client.search.execute` with the same scoped tag scheme; maps results to a compact structure.
 - Toolkit registration: `convex/lib/toolkit.ts`
-  - Registers the Supermemory adapter; tools are exposed only if the chat enables the `"supermemory"` ability.
+  - Registers the Supermemory adapter; tools are exposed only if the chat enables the `"supermemory"` ability and now receive `threadContext` so adapters can infer project scope.
+- Toolkit wiring to chats: `convex/chat_http/post.route.ts`
+  - Looks up the current thread, builds `threadContext` `{ threadId, projectId }`, and passes it to `getToolkit` so Supermemory can scope by folder automatically.
 - Prompt wiring: `convex/chat_http/prompt.ts`
   - When `supermemory` is enabled, the system prompt explains the available memory tools and when to use them.
 - Settings, storage, and key handling: `convex/settings.ts`, `convex/schema/settings.ts`
@@ -52,30 +54,25 @@ Notes:
 - If a tool is invoked without a configured/enabled key, the tool returns a friendly error.
 
 ## Data Scoping and Metadata
-- All operations include a `containerTags` array to scope to the current user: `[userId, ...]`.
-- Optional filters enrich scoping and search:
+- All operations include a `containerTags` array of at least `[userId, tag:project:{projectId|none}]` to scope to the user and the active folder (with `tag:project:none` for unfoldered chats).
+- Optional filters/metadata enrich scoping and search:
   - Category: `category:{value}`
-  - Tags: `tag:{value}` (one entry per tag)
+  - Tags: `tag:{value}` (one entry per tag or metadata tag)
 - `add_memory` also writes metadata (e.g., `title`, `category`, joined `tags`, `addedAt`).
 
 ## Scope of Memory
-- User-wide: Memories are scoped to the user and available across all chats where Supermemory is enabled (not limited to a single thread).
+- Folder-aware by default: Memories are scoped to the user *and* the active folder. Threads in the same project automatically share memories; threads without a project share the `tag:project:none` pool.
 - No recency window: Retrieval is semantic; there is no built‑in “recent only” filter unless you add one via metadata/tags.
-- Default search scope: If you don’t pass `category`/`tags`, the search runs over all of the user’s memories.
-- Narrowing scope: Use categories/tags (e.g., `category:project-x`, `tag:thread:{threadId}`) when writing, and pass the same filters on search to restrict recall.
+- Default search scope: If you don’t pass additional filters, the search runs over the current folder’s pool (or the unfoldered pool).
+- Narrowing scope: Add categories/tags (e.g., `category:incident`, `tag:followup`) to further partition within the folder-scoped pool.
 
 ## Folder Integration (Projects)
-- Current behavior: Folder/project organization of chats does not automatically scope Supermemory operations. The adapter does not inject folder or thread tags.
+- Default behavior: Folder/project organization now scopes Supermemory automatically. Every request includes `tag:project:{projectId}` for folder chats or `tag:project:none` for unfoldered chats.
   - Threads carry `projectId` (folder) in the schema: `convex/schema/thread.ts`.
-  - The Supermemory adapter only includes `[userId, ...optional category/tags]` in `containerTags`: `convex/lib/tools/supermemory.ts`.
-- Result: Unless you provide filters, `search_memories` runs over the user’s entire memory space (user-wide), not the current folder.
-- How to achieve folder-scoped memory (optional pattern):
-  - On write (`add_memory`): include tags like `tag:project:{projectId}` and `tag:thread:{threadId}`; optionally set `category:project-{projectId}`.
-  - On read (`search_memories`): pass the same tags (or category) to restrict recall to the current folder and/or thread.
-  - Where to implement: Extend the toolkit/context so the Supermemory adapter receives `threadId` (and can look up `projectId`) and appends these tags by default.
-    - Adapter code to update: `convex/lib/tools/supermemory.ts` (build `containerTags` for both add/search).
-    - Thread/folder context sources: `convex/chat_http/post.route.ts` (chat request includes thread info), `convex/threads.ts` (threads store `projectId`).
-  - Prompt note: Consider documenting in the system prompt that searches are folder-scoped by default and how to broaden scope if needed.
+  - `convex/lib/tools/supermemory.ts` builds scoped tags via `buildScopedContainerTags`.
+  - `convex/chat_http/post.route.ts` fetches the thread and passes `{ threadId, projectId }` into the toolkit.
+- Result: Folder chats only see their own memories, and unfoldered chats share a separate pool.
+- Moving threads between folders does not rewrite historical memories; consider re-saving important memories under the new scope if you need them in the new folder.
 
 ## Tool Contracts
 - `add_memory` parameters:
@@ -107,9 +104,10 @@ Returned shapes:
 6. The tool result is streamed back and used by the model to form the final answer.
 
 ## Quick Code Pointers
-- Client creation and calls: `convex/lib/tools/supermemory.ts:47`, `convex/lib/tools/supermemory.ts:117`, `convex/lib/tools/supermemory.ts:59`, `convex/lib/tools/supermemory.ts:129`.
+- Client creation and scoped tag builder: `convex/lib/tools/supermemory.ts:37`, `convex/lib/tools/supermemory.ts:83`, `convex/lib/tools/supermemory.ts:155`.
 - Key decryption for tools: `convex/settings.ts:366`.
-- Ability registration: `convex/lib/toolkit.ts:11`.
+- Ability registration and thread context plumbing: `convex/lib/toolkit.ts:10`, `convex/lib/toolkit.ts:27`.
+- Toolkit invocation from chat route: `convex/chat_http/post.route.ts:365`.
 - Prompt layer for memory tools: `convex/chat_http/prompt.ts:97`.
 - Settings UI card: `src/components/settings/supermemory-card.tsx:64`.
 - Per-chat tool toggle: `src/components/tool-selector-popover.tsx:196`.
@@ -122,5 +120,5 @@ Returned shapes:
   - Make sure the provider is enabled and the key is set; re-save if you rotated it.
 - No results from search:
   - Verify you saved memories under the same user and using the same category/tags you’re filtering by.
- - Expecting folder-scoped results:
-   - Folder/project scoping is not automatic. Ensure you’re writing memories with `tag:project:{projectId}` (and/or `tag:thread:{threadId}`) and passing the same tags on `search_memories`, or update the adapter to inject these by default.
+- Expecting folder-scoped results:
+  - Folder/project scoping is automatic. If you’re not seeing expected memories, confirm the chat is in the intended folder and that the memories were added after the thread was in that folder (older memories keep their original project tag).

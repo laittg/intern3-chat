@@ -127,6 +127,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
         threadId: mutationResult.threadId
     })
+    const thread = await ctx.runQuery(internal.threads.getThreadById, {
+        threadId: mutationResult.threadId
+    })
 
     const modelData = await getModel(ctx, body.model)
     if (modelData instanceof ChatError) return modelData.toResponse()
@@ -359,7 +362,17 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     experimental_transform: smoothStream(),
                     toolCallStreaming: true,
                     tools: modelData.abilities.includes("function_calling")
-                        ? await getToolkit(ctx, body.enabledTools, filteredSettings)
+                        ? await getToolkit(
+                              ctx,
+                              body.enabledTools,
+                              filteredSettings,
+                              thread
+                                  ? {
+                                        threadId: thread._id,
+                                        projectId: thread.projectId ?? null
+                                    }
+                                  : undefined
+                          )
                         : undefined,
                     messages: [
                         ...(modelData.modelId !== "gemini-2.0-flash-image-generation"

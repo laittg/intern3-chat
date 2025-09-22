@@ -2,9 +2,44 @@ import { tool } from "ai"
 import supermemory from "supermemory"
 import { z } from "zod"
 import { internal } from "../../_generated/api"
-import type { ToolAdapter } from "../toolkit"
+import type { ThreadContext, ToolAdapter } from "../toolkit"
 
-export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userSettings }) => {
+const buildScopedContainerTags = (
+    userId: string,
+    threadContext: ThreadContext | undefined,
+    category?: string | null,
+    tags?: string[] | null
+) => {
+    const containerTags = new Set<string>([userId])
+
+    if (threadContext) {
+        const scopeTag = threadContext.projectId
+            ? `tag:project:${threadContext.projectId}`
+            : "tag:project:none"
+        containerTags.add(scopeTag)
+    }
+
+    if (category) {
+        containerTags.add(`category:${category}`)
+    }
+
+    if (tags) {
+        for (const tag of tags) {
+            if (tag) {
+                containerTags.add(`tag:${tag}`)
+            }
+        }
+    }
+
+    return Array.from(containerTags)
+}
+
+export const SupermemoryAdapter: ToolAdapter = async ({
+    ctx,
+    enabledTools,
+    userSettings,
+    threadContext
+}) => {
     if (!enabledTools.includes("supermemory")) return {}
 
     return {
@@ -48,13 +83,12 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         apiKey
                     })
 
-                    const containerTags = [userSettings.userId]
-                    if (metadata?.category) {
-                        containerTags.push(`category:${metadata.category}`)
-                    }
-                    if (metadata?.tags) {
-                        containerTags.push(...metadata.tags.map((tag) => `tag:${tag}`))
-                    }
+                    const containerTags = buildScopedContainerTags(
+                        userSettings.userId,
+                        threadContext,
+                        metadata?.category,
+                        metadata?.tags
+                    )
 
                     const response = await client.memories.add({
                         content,
@@ -118,18 +152,18 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         apiKey
                     })
 
-                    const containerTags = [userSettings.userId]
-                    if (category) {
-                        containerTags.push(`category:${category}`)
-                    }
-                    if (tags) {
-                        containerTags.push(...tags.map((tag) => `tag:${tag}`))
-                    }
+                    const containerTags = buildScopedContainerTags(
+                        userSettings.userId,
+                        threadContext,
+                        category,
+                        tags
+                    )
 
                     const response = await client.search.execute({
                         q: query,
                         limit,
-                        containerTags: containerTags.length > 1 ? containerTags : undefined
+                        containerTags:
+                            containerTags.length > 1 || threadContext ? containerTags : undefined
                     })
 
                     if (!response.results || response.results.length === 0) {
