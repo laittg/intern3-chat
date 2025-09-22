@@ -9,12 +9,14 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SidebarGroupLabel } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import { DEFAULT_PROJECT_ICON, PROJECT_COLORS } from "@/lib/project-constants"
 import { cn } from "@/lib/utils"
+import { Link } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { Check, Plus } from "lucide-react"
-import { useState } from "react"
+import { Check } from "lucide-react"
+import { type MouseEvent, useCallback, useState } from "react"
 import { toast } from "sonner"
 
 export function NewFolderButton({ onClick }: { onClick?: () => void }) {
@@ -24,6 +26,15 @@ export function NewFolderButton({ onClick }: { onClick?: () => void }) {
     const [folderColor, setFolderColor] = useState<string>("blue")
     const [isCreating, setIsCreating] = useState(false)
     const createProjectMutation = useMutation(api.folders.createProject)
+
+    const handleOpenDialog = useCallback(
+        (event: MouseEvent<HTMLAnchorElement>) => {
+            event.preventDefault()
+            setShowDialog(true)
+            onClick?.()
+        },
+        [onClick]
+    )
 
     const handleCreate = async () => {
         const trimmedName = folderName.trim()
@@ -60,18 +71,18 @@ export function NewFolderButton({ onClick }: { onClick?: () => void }) {
 
     return (
         <>
-            <Button
-                size="sm"
-                variant={"ghost"}
-                onClick={() => {
-                    setShowDialog(true)
-                    onClick?.()
-                }}
-                className="size-6 text-muted-foreground"
+            <SidebarGroupLabel
+                asChild
+                className="group mb-1 justify-between gap-2 rounded pr-0 hover:bg-accent/50 focus-visible:ring-2"
             >
-                <Plus className="size-4" />
-                <span className="sr-only">New folder</span>
-            </Button>
+                <Link
+                    to="."
+                    onClick={handleOpenDialog}
+                    className="flex w-full items-center justify-between gap-2"
+                >
+                    <span className="truncate">New folder</span>
+                </Link>
+            </SidebarGroupLabel>
 
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
                 <DialogContent className="max-w-md">
