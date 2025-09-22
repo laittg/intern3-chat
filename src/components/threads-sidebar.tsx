@@ -145,10 +145,12 @@ export function ThreadsSidebar() {
     const isMobile = useIsMobile()
     const { setOpenMobile } = useSidebar()
     const auth = useConvexAuth()
+    const isAuthenticated = Boolean(session?.user?.id)
+    const canAccessData = isAuthenticated && !auth.isLoading
 
     // Get all threads (not filtered by project anymore)
     const {
-        results: allThreads,
+        results: cachedThreads,
         status,
         loadMore
     } = useDiskCachedPaginatedQuery(
@@ -157,7 +159,7 @@ export function ThreadsSidebar() {
             key: "threads",
             maxItems: 50
         },
-        session?.user?.id && !auth.isLoading
+        canAccessData
             ? {
                   includeInFolder: false
               }
@@ -167,12 +169,17 @@ export function ThreadsSidebar() {
         }
     )
 
+    const allThreads = useMemo(
+        () => (canAccessData ? cachedThreads : []),
+        [canAccessData, cachedThreads]
+    )
+
     const threadFromList = useMemo(() => {
         if (!activeThreadId) return undefined
         return allThreads.find((thread) => thread._id === activeThreadId)
     }, [activeThreadId, allThreads])
 
-    const shouldFetchActiveThread = Boolean(activeThreadId && !threadFromList)
+    const shouldFetchActiveThread = Boolean(canAccessData && activeThreadId && !threadFromList)
 
     const activeThreadResponse = useConvexQuery(
         api.threads.getThread,
@@ -180,15 +187,25 @@ export function ThreadsSidebar() {
     )
 
     // Get projects
-    const projects = useDiskCachedQuery(
+    const projectsQuery = useDiskCachedQuery(
         api.folders.getUserProjects,
         {
             key: "projects",
             default: [],
             forceCache: true
         },
-        session?.user?.id && !auth.isLoading ? {} : "skip"
+        canAccessData ? {} : "skip"
     )
+
+    const projects = useMemo(() => {
+        if (!canAccessData) return []
+
+        if (!Array.isArray(projectsQuery)) return []
+
+        return projectsQuery
+    }, [canAccessData, projectsQuery])
+
+    const hasProjectsError = canAccessData && !Array.isArray(projectsQuery)
 
     const isLoading = false
 
@@ -199,9 +216,6 @@ export function ThreadsSidebar() {
         rootMargin: "200px",
         threshold: 0.1
     })
-
-    const isAuthenticated = Boolean(session?.user?.id)
-    const hasError = false
 
     const groupedNonProjectThreads = useMemo(() => {
         return groupThreadsByTime(allThreads)
@@ -311,11 +325,18 @@ export function ThreadsSidebar() {
     }, [])
 
     const renderContent = () => {
+        if (!canAccessData) {
+            if (!auth.isLoading) {
+                return <EmptyState message="Sign in to access your threads" />
+            }
+            return <LoadingSkeleton />
+        }
+
         if (isLoading) {
             return <LoadingSkeleton />
         }
 
-        if (hasError || "error" in projects) {
+        if (hasProjectsError) {
             return <></>
         }
 
@@ -437,10 +458,13 @@ export function ThreadsSidebar() {
                     {/* <Tooltip> */}
                     {/* <TooltipTrigger> */}
                     <Link
-                        to="/"
+                        to={canAccessData ? "/" : "/auth/$pathname"}
+                        params={{ pathname: "signup" }}
                         onClick={() => {
-                            document.dispatchEvent(new CustomEvent("new_chat"))
-                            setOpenMobile(false)
+                            if (canAccessData) {
+                                document.dispatchEvent(new CustomEvent("new_chat"))
+                                setOpenMobile(false)
+                            }
                         }}
                         className={cn(
                             buttonVariants({ variant: "default" }),
@@ -494,7 +518,7 @@ export function ThreadsSidebar() {
                     onCloseRenameDialog={handleCloseRenameDialog}
                     onCloseMoveDialog={handleCloseMoveDialog}
                     currentThread={currentThread}
-                    projects={"error" in projects ? [] : projects}
+                    projects={projects}
                 />
 
                 <SidebarRail />
