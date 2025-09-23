@@ -6,7 +6,7 @@ import { getFileTypeInfo } from "@/lib/file_constants"
 import { cn } from "@/lib/utils"
 import type { UIMessage } from "ai"
 import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import type { useStickToBottom } from "use-stick-to-bottom"
 import { ChatActions } from "./chat-actions"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -293,6 +293,16 @@ export function Messages({
 
     const fileName = previewFile?.filename || extractFileName(previewFile?.data || "")
 
+    const [streamingVisibility, setStreamingVisibility] = useState<{
+        messageId: string | null
+        reasoning: boolean
+        assistant: boolean
+    }>({
+        messageId: null,
+        reasoning: false,
+        assistant: false
+    })
+
     const renderFilePreview = () => {
         if (!previewFile) return null
 
@@ -325,21 +335,88 @@ export function Messages({
         )
     }
 
-    const lastMessage = messages[messages.length - 1]
-    const isStreamingWithoutContent =
-        status === "streaming" &&
-        lastMessage?.role === "assistant" &&
-        (!lastMessage.parts ||
-            lastMessage.parts.length === 0 ||
-            lastMessage.parts.every(
-                (part) =>
-                    (part.type === "text" && (!part.text || part.text.trim() === "")) ||
-                    (part.type === "reasoning" && (!part.reasoning || part.reasoning.trim() === ""))
-            ))
+    const lastMessageIndex = messages.length - 1
+    const lastMessage = messages[lastMessageIndex]
 
-    const showTypingLoader = status === "submitted" || isStreamingWithoutContent
+    const isStreaming = status === "streaming"
+    const isStreamingAssistant = isStreaming && lastMessage?.role === "assistant"
 
-    const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")
+    useEffect(() => {
+        if (!isStreamingAssistant || !lastMessage?.id) {
+            setStreamingVisibility((prev) =>
+                prev.messageId !== null || prev.reasoning || prev.assistant
+                    ? { messageId: null, reasoning: false, assistant: false }
+                    : prev
+            )
+            return
+        }
+
+        setStreamingVisibility((prev) => {
+            if (prev.messageId !== lastMessage.id) {
+                return { messageId: lastMessage.id, reasoning: false, assistant: false }
+            }
+
+            let reasoningVisible = prev.reasoning
+            let assistantVisible = prev.assistant
+
+            if (!reasoningVisible) {
+                const hasReasoningContent = lastMessage.parts?.some(
+                    (part) => part.type === "reasoning" && !!part.reasoning?.trim()
+                )
+
+                if (hasReasoningContent) {
+                    reasoningVisible = true
+                }
+            }
+
+            if (!assistantVisible) {
+                const hasAssistantContent = lastMessage.parts?.some((part) => {
+                    if (part.type === "text") {
+                        return !!part.text?.trim()
+                    }
+                    if (part.type === "tool-invocation" || part.type === "file") {
+                        return true
+                    }
+                    return false
+                })
+
+                if (hasAssistantContent) {
+                    assistantVisible = true
+                }
+            }
+
+            if (reasoningVisible === prev.reasoning && assistantVisible === prev.assistant) {
+                return prev
+            }
+
+            return {
+                ...prev,
+                reasoning: reasoningVisible,
+                assistant: assistantVisible
+            }
+        })
+    }, [isStreamingAssistant, lastMessage])
+
+    const reasoningHasVisibleContent = isStreamingAssistant ? streamingVisibility.reasoning : false
+
+    const assistantHasVisibleContent = isStreamingAssistant ? streamingVisibility.assistant : false
+
+    const showTypingLoader = status === "submitted" || (isStreaming && !assistantHasVisibleContent)
+
+    const visibleMessages =
+        !isStreaming || reasoningHasVisibleContent || assistantHasVisibleContent
+            ? messages
+            : messages.slice(0, lastMessageIndex)
+
+    let retryLastUserMessage: UIMessage | undefined = undefined
+    if (status === "error") {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "user") {
+                retryLastUserMessage = messages[i]
+                break
+            }
+        }
+    }
 
     return (
         <>
@@ -351,7 +428,7 @@ export function Messages({
                         getChatWidthClass(chatWidthState.chatWidth)
                     )}
                 >
-                    {messages.map((message) => (
+                    {visibleMessages.map((message) => (
                         <div
                             key={message.id}
                             className={cn(
@@ -385,8 +462,7 @@ export function Messages({
                                                     id={`${message.id}-text-${index}`}
                                                     onFilePreview={handleFilePreview}
                                                     isStreaming={
-                                                        status === "streaming" &&
-                                                        message === lastMessage
+                                                        isStreaming && message === lastMessage
                                                     }
                                                 />
                                             ))}
@@ -407,15 +483,15 @@ export function Messages({
                                                         id={`${message.id}-file-${index}`}
                                                         onFilePreview={handleFilePreview}
                                                         isStreaming={
-                                                            status === "streaming" &&
-                                                            message === lastMessage
+                                                            isStreaming && message === lastMessage
                                                         }
                                                     />
                                                 ))}
                                         </div>
                                     )}
 
-                                    {!targetFromMessageId && message.role === "user" ? (
+                                    {(isStreaming && message.id === lastMessage?.id) ||
+                                    targetFromMessageId ? null : message.role === "user" ? (
                                         <ChatActions
                                             role={message.role}
                                             message={message}
@@ -426,7 +502,7 @@ export function Messages({
                                                     : handleEdit
                                             }
                                         />
-                                    ) : !targetFromMessageId && message.role === "assistant" ? (
+                                    ) : message.role === "assistant" ? (
                                         <ChatActions
                                             role={message.role}
                                             message={message}
@@ -445,11 +521,11 @@ export function Messages({
                                 <p className="text-destructive-foreground">
                                     Oops! Something went wrong.
                                 </p>
-                                {lastUserMessage && (
+                                {retryLastUserMessage && (
                                     <Button
                                         variant="destructive"
                                         size="sm"
-                                        onClick={() => onRetry?.(lastUserMessage)}
+                                        onClick={() => onRetry?.(retryLastUserMessage)}
                                         className="text-destructive-foreground hover:text-destructive-foreground/80"
                                     >
                                         <RotateCcw />
@@ -460,8 +536,8 @@ export function Messages({
                         </div>
                     )}
 
-                    <div className="flex min-h-[3rem] items-center gap-2 py-4">
-                        {showTypingLoader && <Loader variant="typing" size="md" />}
+                    <div className="flex min-h-[3rem] items-center gap-2 py-4 opacity-90">
+                        {showTypingLoader && <Loader variant="pulse-dot" size="lg" />}
                     </div>
                 </div>
             </div>
