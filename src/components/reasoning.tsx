@@ -1,7 +1,6 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { Brain, ChevronDownIcon } from "lucide-react"
 import type React from "react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -30,7 +29,6 @@ export type ReasoningProps = {
 }
 function Reasoning({ children, className, open, onOpenChange, isStreaming }: ReasoningProps) {
     const [internalOpen, setInternalOpen] = useState(false)
-    const [wasAutoOpened, setWasAutoOpened] = useState(false)
 
     const isControlled = open !== undefined
     const isOpen = isControlled ? open : internalOpen
@@ -43,16 +41,10 @@ function Reasoning({ children, className, open, onOpenChange, isStreaming }: Rea
     }
 
     useEffect(() => {
-        if (isStreaming && !wasAutoOpened) {
-            if (!isControlled) setInternalOpen(true)
-            setWasAutoOpened(true)
+        if (isStreaming && !isControlled) {
+            setInternalOpen(false)
         }
-
-        if (!isStreaming && wasAutoOpened) {
-            if (!isControlled) setInternalOpen(false)
-            setWasAutoOpened(false)
-        }
-    }, [isStreaming, wasAutoOpened, isControlled])
+    }, [isStreaming, isControlled])
 
     return (
         <ReasoningContext.Provider
@@ -69,27 +61,37 @@ function Reasoning({ children, className, open, onOpenChange, isStreaming }: Rea
 export type ReasoningTriggerProps = {
     children: React.ReactNode
     className?: string
-} & React.HTMLAttributes<HTMLButtonElement>
+    disabled?: boolean
+} & React.ButtonHTMLAttributes<HTMLButtonElement>
 
-function ReasoningTrigger({ children, className, ...props }: ReasoningTriggerProps) {
+function ReasoningTrigger({
+    children,
+    className,
+    disabled = false,
+    ...props
+}: ReasoningTriggerProps) {
     const { isOpen, onOpenChange } = useReasoningContext()
 
     return (
         <button
-            className={cn("flex w-full cursor-pointer items-center gap-2", className)}
-            onClick={() => onOpenChange(!isOpen)}
+            type="button"
+            className={cn(
+                "inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors",
+                disabled ? "cursor-default text-muted-foreground/70" : "hover:text-foreground",
+                className
+            )}
+            aria-expanded={isOpen}
+            aria-disabled={disabled}
+            onClick={(event) => {
+                if (disabled) {
+                    event.preventDefault()
+                    return
+                }
+                onOpenChange(!isOpen)
+            }}
             {...props}
         >
-            <Brain className="size-4 text-primary" />
-            <span className="text-primary">{children}</span>
-            <div
-                className={cn(
-                    "ml-auto transform transition-all duration-200",
-                    isOpen ? "rotate-180" : ""
-                )}
-            >
-                <ChevronDownIcon className="size-4" />
-            </div>
+            {children}
         </button>
     )
 }

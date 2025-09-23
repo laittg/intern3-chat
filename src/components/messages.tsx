@@ -1,12 +1,14 @@
+import { MODELS_SHARED } from "@/convex/lib/models"
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
+import { useModelStore } from "@/lib/model-store"
 import { cn } from "@/lib/utils"
 import type { UIMessage } from "ai"
 import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw } from "lucide-react"
-import { memo, useEffect, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import type { useStickToBottom } from "use-stick-to-bottom"
 import { ChatActions } from "./chat-actions"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -31,6 +33,24 @@ const getFileIcon = (part: { data: string; filename?: string; mimeType?: string 
     if (isCode) return <Code className="size-4 text-green-500" />
     if (isPdf) return <FileType2 className="size-4 text-gray-500" />
     return <FileType className="size-4 text-gray-500" />
+}
+
+// Derive a short status label from the most recent reasoning snippets efficiently.
+const getLatestReasoningTitle = (reasoning?: string) => {
+    if (typeof reasoning !== "string" || !reasoning) return undefined
+
+    const lines = reasoning.split(/\r?\n/)
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const normalized = lines[i].trim()
+        if (!normalized) continue
+        if (normalized.slice(-1) === ".") continue
+        if (normalized.split(" ").length < 15) {
+            return normalized.replace(/\*+/g, "")
+        }
+    }
+
+    return undefined
 }
 
 const FileAttachment = memo(
@@ -146,20 +166,35 @@ const PartsRenderer = memo(
                     </div>
                 )
             case "reasoning": {
-                const hasReasoningContent = part.reasoning && part.reasoning.trim() !== ""
-                const isReasoningStreaming =
-                    isStreaming && (!hasReasoningContent || part.reasoning.endsWith(""))
+                const hasReasoningContent =
+                    typeof part.reasoning === "string" && part.reasoning.trim() !== ""
+                const isReasoningStreaming = Boolean(isStreaming)
+
+                if (!isReasoningStreaming && !hasReasoningContent) {
+                    return null
+                }
+
+                const labelWhenStreaming = getLatestReasoningTitle(part.reasoning) || "Thinking"
 
                 return (
                     <Reasoning className="mb-6" isStreaming={isReasoningStreaming}>
-                        <ReasoningTrigger className="mb-4">Reasoning</ReasoningTrigger>
-                        <ReasoningContent
-                            markdown={markdown}
-                            className="rounded-lg border bg-muted/50"
-                            contentClassName="prose prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
+                        <ReasoningTrigger
+                            className={cn(
+                                "mb-2 w-fit",
+                                isReasoningStreaming && "pointer-events-none"
+                            )}
+                            disabled={isReasoningStreaming}
                         >
-                            {hasReasoningContent ? part.reasoning : ""}
-                        </ReasoningContent>
+                            {isReasoningStreaming ? labelWhenStreaming : "Thoughts"}
+                        </ReasoningTrigger>
+                        {!isReasoningStreaming && hasReasoningContent && (
+                            <ReasoningContent
+                                markdown={markdown}
+                                contentClassName="prose prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
+                            >
+                                {part.reasoning}
+                            </ReasoningContent>
+                        )}
                     </Reasoning>
                 )
             }
@@ -260,6 +295,7 @@ export function Messages({
     const { setTargetFromMessageId, targetFromMessageId, setTargetMode, targetMode } =
         useChatStore()
     const { chatWidthState } = useChatWidthStore()
+    const { selectedModel, reasoningEffort } = useModelStore()
 
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
     const [previewFile, setPreviewFile] = useState<{
@@ -403,6 +439,14 @@ export function Messages({
 
     const showTypingLoader = status === "submitted" || (isStreaming && !assistantHasVisibleContent)
 
+    const showAssistantPlaceholder = showTypingLoader && !reasoningHasVisibleContent
+
+    const showReasoningPlaceholder = useMemo(() => {
+        const model = MODELS_SHARED.find((m) => m.id === selectedModel)
+        const supportsReasoning = Boolean(model?.abilities?.includes("reasoning"))
+        return supportsReasoning && reasoningEffort !== "off"
+    }, [selectedModel, reasoningEffort])
+
     const visibleMessages =
         !isStreaming || reasoningHasVisibleContent || assistantHasVisibleContent
             ? messages
@@ -510,10 +554,40 @@ export function Messages({
                                             onEdit={undefined}
                                         />
                                     ) : null}
+
+                                    {showTypingLoader &&
+                                        message.role !== "user" &&
+                                        message.id === lastMessage?.id && (
+                                            <Loader variant="pulse-dot" size="lg" />
+                                        )}
                                 </>
                             )}
                         </div>
                     ))}
+
+                    {showAssistantPlaceholder && (
+                        <div
+                            className={cn(
+                                "prose relative prose-ol:my-2 prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background",
+                                "group prose-img:mx-auto prose-img:my-4 prose-pre:grid prose-code:before:hidden prose-code:after:hidden",
+                                "mb-8"
+                            )}
+                        >
+                            {/* Optional reasoning placeholder */}
+                            {showReasoningPlaceholder && (
+                                <Reasoning className="mb-6" isStreaming>
+                                    <ReasoningTrigger
+                                        className="pointer-events-none mb-2 w-fit"
+                                        disabled
+                                    >
+                                        Thinking
+                                    </ReasoningTrigger>
+                                </Reasoning>
+                            )}
+
+                            <Loader variant="pulse-dot" size="lg" />
+                        </div>
+                    )}
 
                     {status === "error" && (
                         <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
@@ -535,10 +609,6 @@ export function Messages({
                             </div>
                         </div>
                     )}
-
-                    <div className="flex min-h-[3rem] items-center gap-2 py-4 opacity-90">
-                        {showTypingLoader && <Loader variant="pulse-dot" size="lg" />}
-                    </div>
                 </div>
             </div>
 
